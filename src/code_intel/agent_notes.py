@@ -69,7 +69,7 @@ def build_agent_note_section(command_prefix: str) -> str:
             NOTE_START,
             "## Code Intel",
             "",
-            "Use code-intel for repository-aware navigation before non-trivial code changes, similar to jCodemunch.",
+            "Use code-intel for self-contained repository-aware navigation before non-trivial code changes.",
             "Prefer the MCP server tools when configured: `catalog_repo`, `find_symbols`, `explain_file`, "
             "`related_tests`, `risk_report`, and `savings_report`.",
             f"CLI fallback: refresh with `{command} scan .`, then use `{command} explain --repo . path/to/file.py` "

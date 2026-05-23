@@ -12,7 +12,7 @@ def test_install_agent_notes_creates_claude_and_agents_files(tmp_path: Path) -> 
     assert [result.action for result in results] == ["create", "create"]
     claude = tmp_path / "CLAUDE.md"
     agents = tmp_path / "AGENTS.md"
-    assert "similar to jCodemunch" in claude.read_text()
+    assert "self-contained repository-aware navigation" in claude.read_text()
     assert "catalog_repo" in agents.read_text()
     assert "savings_report" in agents.read_text()
     assert "uv run code-intel scan ." in claude.read_text()

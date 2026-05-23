@@ -12,8 +12,8 @@ engineering questions:
 - how many file reads and tokens the tool likely avoided
 
 The catalog is stored under `.code-intel/catalog.sqlite` by default and is ignored
-by git. Symbol search can use the built-in catalog or a local jCodemunch database
-when one exists for the same repository.
+by git. Normal use is self-contained: scan a repository with `code-intel`, then
+search the generated catalog.
 
 ## Install for development
 
@@ -35,8 +35,9 @@ code-intel savings --repo .
 code-intel doctor .
 ```
 
-`find` defaults to `--provider auto`, which searches jCodemunch first when a
-matching local database exists, then falls back to the code-intel catalog.
+`find` defaults to the built-in `catalog` provider. The `jcodemunch` provider is
+an explicit compatibility bridge for reading an existing local jCodemunch SQLite
+database; code-intel does not require jCodemunch for normal operation.
 
 ## Savings report
 
@@ -111,5 +112,5 @@ uv run code-intel install-agent-notes /path/to/repo \
 - Keep generated catalogs out of normal commits.
 - Prefer structured language parsers where available.
 - Make repo-specific knowledge a plugin/config concern, not core behavior.
-- Keep the CLI useful without jCodemunch, while using jCodemunch as a provider
-  when a matching local database is available.
+- Keep the core CLI self-contained; optional compatibility providers must not be
+  required for normal operation.

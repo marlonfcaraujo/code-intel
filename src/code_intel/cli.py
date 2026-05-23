@@ -52,9 +52,9 @@ def _build_parser() -> argparse.ArgumentParser:
     find_parser.add_argument("--limit", type=int, default=20, help="Maximum results")
     find_parser.add_argument(
         "--provider",
-        choices=("auto", "catalog", "jcodemunch"),
-        default="auto",
-        help="Symbol provider to use (default: auto)",
+        choices=("catalog", "jcodemunch"),
+        default="catalog",
+        help="Symbol provider to use (default: catalog)",
     )
     find_parser.set_defaults(func=_cmd_find)
 

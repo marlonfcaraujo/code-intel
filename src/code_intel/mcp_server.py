@@ -30,7 +30,7 @@ def find_symbols_tool(
     query: str,
     repo_path: str = ".",
     limit: int = 20,
-    provider: ProviderName = "auto",
+    provider: ProviderName = "catalog",
 ) -> dict[str, Any]:
     """Search symbols in a repository through the selected provider."""
     repo_root = Path(repo_path).resolve()
@@ -182,9 +182,9 @@ def serve_mcp(default_repo_path: str = ".") -> None:
         query: str,
         repo_path: str | None = None,
         limit: int = 20,
-        provider: ProviderName = "auto",
+        provider: ProviderName = "catalog",
     ) -> dict[str, Any]:
-        """Search symbols in a repository through code-intel or jCodemunch."""
+        """Search symbols in a repository through code-intel or an explicit compatibility provider."""
         return find_symbols_tool(query=query, repo_path=repo_or_default(repo_path), limit=limit, provider=provider)
 
     @server.tool()

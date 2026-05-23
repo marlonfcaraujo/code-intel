@@ -9,7 +9,7 @@ from typing import Any, Literal
 from code_intel.catalog_store import CatalogStore
 from code_intel.jcodemunch_provider import search_jcodemunch_symbols
 
-ProviderName = Literal["auto", "catalog", "jcodemunch"]
+ProviderName = Literal["catalog", "jcodemunch"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,15 +26,14 @@ def search_symbols(
     query: str,
     *,
     limit: int = 20,
-    provider: ProviderName = "auto",
+    provider: ProviderName = "catalog",
 ) -> SymbolSearchResult:
     """Search symbols through the selected provider."""
-    if provider in {"auto", "jcodemunch"}:
+    if provider == "jcodemunch":
         rows = search_jcodemunch_symbols(repo_path, query, limit)
-        if rows or provider == "jcodemunch":
-            return SymbolSearchResult(provider="jcodemunch", symbols=rows)
+        return SymbolSearchResult(provider="jcodemunch", symbols=rows)
 
-    if provider in {"auto", "catalog"}:
+    if provider == "catalog":
         if not store.has_catalog():
             return SymbolSearchResult(provider="catalog", symbols=[])
         rows = [

@@ -67,13 +67,25 @@ def test_jcodemunch_provider_searches_matching_database(tmp_path: Path, monkeypa
     ]
 
 
-def test_unified_search_uses_jcodemunch_before_catalog(tmp_path: Path, monkeypatch) -> None:
+def test_unified_search_defaults_to_catalog_even_when_jcodemunch_exists(tmp_path: Path, monkeypatch) -> None:
     repo = _make_repo(tmp_path)
     build_catalog(repo)
     _make_jcodemunch_database(tmp_path, repo)
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    result = search_symbols(repo, CatalogStore.for_repo(repo), "Service", provider="auto")
+    result = search_symbols(repo, CatalogStore.for_repo(repo), "Service")
+
+    assert result.provider == "catalog"
+    assert result.symbols[0]["path"] == "src/app/service.py"
+
+
+def test_unified_search_uses_jcodemunch_when_explicit(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_repo(tmp_path)
+    build_catalog(repo)
+    _make_jcodemunch_database(tmp_path, repo)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = search_symbols(repo, CatalogStore.for_repo(repo), "Service", provider="jcodemunch")
 
     assert result.provider == "jcodemunch"
     assert result.symbols[0]["summary"] == "Runs service work."
