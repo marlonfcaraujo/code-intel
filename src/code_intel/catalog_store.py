@@ -1,4 +1,4 @@
-"""SQLite storage for repository indexes."""
+"""SQLite persistence for repository catalogs."""
 
 from __future__ import annotations
 
@@ -8,20 +8,20 @@ from pathlib import Path
 
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
 
-DEFAULT_INDEX_PATH = ".code-intel/index.sqlite"
+DEFAULT_CATALOG_PATH = ".code-intel/catalog.sqlite"
 
 
-class IndexStore:
-    """SQLite-backed repository index."""
+class CatalogStore:
+    """SQLite-backed repository catalog."""
 
     def __init__(self, database_path: Path) -> None:
         """Initialize the store for ``database_path``."""
         self.database_path = database_path
 
     @classmethod
-    def for_repo(cls, repo_root: Path, database_path: Path | None = None) -> IndexStore:
+    def for_repo(cls, repo_root: Path, database_path: Path | None = None) -> CatalogStore:
         """Create a store for ``repo_root``."""
-        return cls((database_path or repo_root / DEFAULT_INDEX_PATH).resolve())
+        return cls((database_path or repo_root / DEFAULT_CATALOG_PATH).resolve())
 
     def connect(self) -> sqlite3.Connection:
         """Open a SQLite connection with row dictionaries enabled."""
@@ -31,7 +31,7 @@ class IndexStore:
         return connection
 
     def reset(self) -> None:
-        """Drop and recreate all index tables."""
+        """Drop and recreate all catalog tables."""
         with self.connect() as connection:
             connection.executescript(
                 """
@@ -82,8 +82,8 @@ class IndexStore:
                 """
             )
 
-    def write_index(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:
-        """Persist a full index."""
+    def write_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:
+        """Persist a full catalog."""
         with self.connect() as connection:
             connection.executemany(
                 "INSERT INTO meta(key, value) VALUES (?, ?)",
@@ -95,25 +95,25 @@ class IndexStore:
                 self._insert_dependencies(connection, analysis.dependencies)
 
     def get_meta(self) -> dict[str, str]:
-        """Return index metadata."""
+        """Return catalog metadata."""
         with self.connect() as connection:
             rows = connection.execute("SELECT key, value FROM meta ORDER BY key").fetchall()
         return {row["key"]: row["value"] for row in rows}
 
     def file_count(self) -> int:
-        """Return the number of indexed files."""
+        """Return the number of cataloged files."""
         with self.connect() as connection:
             row = connection.execute("SELECT COUNT(*) AS count FROM files").fetchone()
         return int(row["count"])
 
     def symbol_count(self) -> int:
-        """Return the number of indexed symbols."""
+        """Return the number of cataloged symbols."""
         with self.connect() as connection:
             row = connection.execute("SELECT COUNT(*) AS count FROM symbols").fetchone()
         return int(row["count"])
 
     def dependency_count(self) -> int:
-        """Return the number of indexed dependencies."""
+        """Return the number of cataloged dependencies."""
         with self.connect() as connection:
             row = connection.execute("SELECT COUNT(*) AS count FROM dependencies").fetchone()
         return int(row["count"])
@@ -146,7 +146,7 @@ class IndexStore:
             ).fetchall()
 
     def resolve_file_path(self, file_path: str) -> str | None:
-        """Resolve a user-provided file path to an indexed relative path."""
+        """Resolve a user-provided file path to a cataloged relative path."""
         normalized = Path(file_path).as_posix().lstrip("./")
         with self.connect() as connection:
             exact = connection.execute("SELECT path FROM files WHERE path = ?", (normalized,)).fetchone()

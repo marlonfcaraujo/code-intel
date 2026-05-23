@@ -1,20 +1,20 @@
-"""Impact analysis for indexed repositories."""
+"""Change reports for cataloged repositories."""
 
 from __future__ import annotations
 
 from collections import defaultdict, deque
 from pathlib import Path
 
-from code_intel.models import ImpactReport
-from code_intel.storage import IndexStore
+from code_intel.catalog_store import CatalogStore
+from code_intel.models import ChangeReport
 from code_intel.tests_map import find_related_tests
 
 
-def compute_impact(repo_root: Path, store: IndexStore, file_path: str) -> ImpactReport:
-    """Compute dependency impact for ``file_path``."""
+def compute_change_report(repo_root: Path, store: CatalogStore, file_path: str) -> ChangeReport:
+    """Compute a dependency-aware change report for ``file_path``."""
     resolved_path = store.resolve_file_path(file_path)
     if resolved_path is None:
-        raise ValueError(f"File is not indexed: {file_path}")
+        raise ValueError(f"File is not cataloged: {file_path}")
 
     reverse_graph = _build_reverse_graph(store)
     direct_dependents = sorted(reverse_graph.get(resolved_path, set()))
@@ -22,7 +22,7 @@ def compute_impact(repo_root: Path, store: IndexStore, file_path: str) -> Impact
     related_tests = find_related_tests(repo_root, store, resolved_path)
     blast_score = round((len(direct_dependents) * 2) + len(transitive_dependents) + (len(related_tests) * 0.5), 2)
 
-    return ImpactReport(
+    return ChangeReport(
         path=resolved_path,
         direct_dependents=direct_dependents,
         transitive_dependents=transitive_dependents,
@@ -32,7 +32,7 @@ def compute_impact(repo_root: Path, store: IndexStore, file_path: str) -> Impact
     )
 
 
-def _build_reverse_graph(store: IndexStore) -> dict[str, set[str]]:
+def _build_reverse_graph(store: CatalogStore) -> dict[str, set[str]]:
     reverse_graph: dict[str, set[str]] = defaultdict(set)
     for dependency in store.list_internal_dependencies():
         reverse_graph[str(dependency["target_path"])].add(str(dependency["source_path"]))

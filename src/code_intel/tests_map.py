@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from code_intel.catalog_store import CatalogStore
 from code_intel.models import TestMatch
-from code_intel.storage import IndexStore
 
 TEST_PATH_PARTS = {"test", "tests", "__tests__"}
 TEST_SUFFIXES = (".test.js", ".test.jsx", ".test.ts", ".test.tsx", ".spec.js", ".spec.jsx", ".spec.ts", ".spec.tsx")
 
 
-def find_related_tests(repo_root: Path, store: IndexStore, target_path: str) -> list[TestMatch]:
+def find_related_tests(repo_root: Path, store: CatalogStore, target_path: str) -> list[TestMatch]:
     """Find tests likely related to ``target_path``."""
     matches: dict[str, set[str]] = {}
     target_stem = Path(target_path).stem
@@ -52,7 +52,7 @@ def _stem_matches(path: str, target_stem: str) -> bool:
     return target_stem in {normalized, normalized.removeprefix("test_")}
 
 
-def _mentions_symbol(repo_root: Path, store: IndexStore, target_path: str, test_path: str) -> bool:
+def _mentions_symbol(repo_root: Path, store: CatalogStore, target_path: str, test_path: str) -> bool:
     full_path = repo_root / test_path
     try:
         source = full_path.read_text(errors="replace")

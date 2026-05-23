@@ -1,7 +1,7 @@
 [project]
 name = "code-intel"
 version = "0.1.0"
-description = "Repository intelligence CLI for symbols, impact, tests, and risk."
+description = "Repository intelligence CLI for catalog search, change reports, tests, and risk."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
@@ -40,4 +40,3 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
-

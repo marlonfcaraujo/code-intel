@@ -1,12 +1,12 @@
-"""Risk scoring for indexed files."""
+"""Risk scoring for cataloged files."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from code_intel.impact import compute_impact
-from code_intel.storage import IndexStore
+from code_intel.catalog_store import CatalogStore
+from code_intel.change_report import compute_change_report
 from code_intel.tests_map import TEST_PATH_PARTS
 
 
@@ -23,14 +23,14 @@ class RiskRow:
     line_count: int
 
 
-def top_risk_files(repo_root: Path, store: IndexStore, limit: int = 20) -> list[RiskRow]:
+def top_risk_files(repo_root: Path, store: CatalogStore, limit: int = 20) -> list[RiskRow]:
     """Return the highest-risk source files."""
     rows: list[RiskRow] = []
     for file_row in store.list_files():
         path = str(file_row["path"])
         if _is_test_path(path):
             continue
-        report = compute_impact(repo_root, store, path)
+        report = compute_change_report(repo_root, store, path)
         rows.append(
             RiskRow(
                 path=path,

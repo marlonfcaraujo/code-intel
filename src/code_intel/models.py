@@ -12,7 +12,7 @@ DependencyKind = Literal["import", "require", "dynamic-import"]
 
 @dataclass(frozen=True, slots=True)
 class SourceFile:
-    """A source file included in the repository index."""
+    """A source file included in the repository catalog."""
 
     path: str
     language: str
@@ -56,8 +56,8 @@ class FileAnalysis:
 
 
 @dataclass(frozen=True, slots=True)
-class IndexResult:
-    """Summary of a completed indexing run."""
+class CatalogResult:
+    """Summary of a completed catalog run."""
 
     repo_path: str
     database_path: str
@@ -75,8 +75,8 @@ class TestMatch:
 
 
 @dataclass(frozen=True, slots=True)
-class ImpactReport:
-    """Impact report for a source file."""
+class ChangeReport:
+    """Change report for a source file."""
 
     path: str
     direct_dependents: list[str]
