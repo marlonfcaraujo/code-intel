@@ -9,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from code_intel.agent_notes import install_agent_notes
 from code_intel.catalog_store import DEFAULT_CATALOG_PATH, CatalogStore
 from code_intel.cataloger import build_catalog
 from code_intel.change_report import compute_change_report
@@ -63,6 +64,16 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument("repo", nargs="?", default=".", help="Repository path")
     doctor_parser.add_argument("--db", help=f"Database path (default: <repo>/{DEFAULT_CATALOG_PATH})")
     doctor_parser.set_defaults(func=_cmd_doctor)
+
+    notes_parser = subparsers.add_parser("install-agent-notes", help="Upsert code-intel guidance into agent files")
+    notes_parser.add_argument("repo", nargs="?", default=".", help="Repository path")
+    notes_parser.add_argument(
+        "--command-prefix",
+        default="code-intel",
+        help="Command agents should use to invoke code-intel",
+    )
+    notes_parser.add_argument("--dry-run", action="store_true", help="Show planned writes without changing files")
+    notes_parser.set_defaults(func=_cmd_install_agent_notes)
 
     return parser
 
@@ -164,6 +175,19 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
         checks["symbols"] = store.symbol_count()
         checks["dependencies"] = store.dependency_count()
     print(json.dumps(checks, indent=2))
+    return 0
+
+
+def _cmd_install_agent_notes(args: argparse.Namespace) -> int:
+    results = install_agent_notes(
+        args.repo,
+        command_prefix=args.command_prefix,
+        dry_run=args.dry_run,
+    )
+    for result in results:
+        print(f"{result.action}: {result.path}")
+        if result.action == "skipped-same-target":
+            print(f"  target already handled: {result.target}")
     return 0
 
 

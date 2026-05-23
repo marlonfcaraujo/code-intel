@@ -32,6 +32,21 @@ code-intel risk --top 20
 code-intel doctor .
 ```
 
+To teach Claude/Codex in a repository to use the tool, upsert the managed note
+into `CLAUDE.md` and `AGENTS.md`:
+
+```bash
+code-intel install-agent-notes /path/to/repo
+```
+
+When running from this source checkout without a global install, pass an explicit
+command prefix:
+
+```bash
+uv run code-intel install-agent-notes /path/to/repo \
+  --command-prefix "uv run --project /Users/maraujo/git_personal/code-intel code-intel"
+```
+
 ## Design principles
 
 - Keep generated catalogs out of normal commits.
