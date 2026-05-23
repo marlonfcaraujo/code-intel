@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.optional-dependencies]
+mcp = ["mcp[cli]>=1.11,<2"]
+
 [project.scripts]
 code-intel = "code_intel.cli:main"
 

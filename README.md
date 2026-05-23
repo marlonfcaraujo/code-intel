@@ -32,6 +32,45 @@ code-intel risk --top 20
 code-intel doctor .
 ```
 
+## MCP server
+
+Install the optional MCP extra before using the server:
+
+```bash
+uv sync --extra mcp --group dev
+uv run code-intel serve-mcp --repo /path/to/repo
+```
+
+Example MCP client config when running from this checkout:
+
+```json
+{
+  "mcpServers": {
+    "code-intel": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/Users/maraujo/git_personal/code-intel",
+        "code-intel",
+        "serve-mcp",
+        "--repo",
+        "."
+      ]
+    }
+  }
+}
+```
+
+Tools exposed by the MCP server:
+
+- `catalog_repo`
+- `find_symbols`
+- `explain_file`
+- `related_tests`
+- `risk_report`
+- `catalog_health`
+
 To teach Claude/Codex in a repository to use the tool, upsert the managed note
 into `CLAUDE.md` and `AGENTS.md`:
 

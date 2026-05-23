@@ -12,8 +12,9 @@ def test_install_agent_notes_creates_claude_and_agents_files(tmp_path: Path) -> 
     assert [result.action for result in results] == ["create", "create"]
     claude = tmp_path / "CLAUDE.md"
     agents = tmp_path / "AGENTS.md"
+    assert "similar to jCodemunch" in claude.read_text()
+    assert "catalog_repo" in agents.read_text()
     assert "uv run code-intel scan ." in claude.read_text()
-    assert "uv run code-intel explain --repo . path/to/file.py" in agents.read_text()
 
 
 def test_install_agent_notes_updates_existing_managed_block(tmp_path: Path) -> None:
@@ -30,6 +31,7 @@ def test_install_agent_notes_updates_existing_managed_block(tmp_path: Path) -> N
     assert claude.read_text().count(NOTE_START) == 1
     assert agents.read_text().count(NOTE_START) == 1
     assert "ci scan ." in claude.read_text()
+    assert "related_tests" in claude.read_text()
     assert "old" not in agents.read_text()
 
 

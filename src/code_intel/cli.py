@@ -13,6 +13,7 @@ from code_intel.agent_notes import install_agent_notes
 from code_intel.catalog_store import DEFAULT_CATALOG_PATH, CatalogStore
 from code_intel.cataloger import build_catalog
 from code_intel.change_report import compute_change_report
+from code_intel.mcp_server import serve_mcp
 from code_intel.risk import top_risk_files
 from code_intel.tests_map import find_related_tests
 
@@ -74,6 +75,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     notes_parser.add_argument("--dry-run", action="store_true", help="Show planned writes without changing files")
     notes_parser.set_defaults(func=_cmd_install_agent_notes)
+
+    mcp_parser = subparsers.add_parser("serve-mcp", help="Run the code-intel MCP server over stdio")
+    mcp_parser.add_argument("--repo", default=".", help="Default repository path for MCP tools")
+    mcp_parser.set_defaults(func=_cmd_serve_mcp)
 
     return parser
 
@@ -188,6 +193,11 @@ def _cmd_install_agent_notes(args: argparse.Namespace) -> int:
         print(f"{result.action}: {result.path}")
         if result.action == "skipped-same-target":
             print(f"  target already handled: {result.target}")
+    return 0
+
+
+def _cmd_serve_mcp(args: argparse.Namespace) -> int:
+    serve_mcp(args.repo)
     return 0
 
 

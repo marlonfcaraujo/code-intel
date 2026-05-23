@@ -69,16 +69,12 @@ def build_agent_note_section(command_prefix: str) -> str:
             NOTE_START,
             "## Code Intel",
             "",
-            "Use `code-intel` for repository-aware navigation before non-trivial code changes.",
-            "",
-            "Recommended workflow:",
-            f"- Refresh the local catalog when source files changed: `{command} scan .`",
-            f"- Explain a file before editing it: `{command} explain --repo . path/to/file.py`",
-            f"- Find symbols without broad file reads: `{command} find --repo . SymbolName`",
-            f"- Find likely related tests: `{command} tests --repo . path/to/file.py`",
-            f"- Review high-risk files for broad work: `{command} risk --repo . --top 20`",
-            "",
-            "The generated catalog lives in `.code-intel/catalog.sqlite`; do not commit it.",
+            "Use code-intel for repository-aware navigation before non-trivial code changes, similar to jCodemunch.",
+            "Prefer the MCP server tools when configured: `catalog_repo`, `find_symbols`, `explain_file`, "
+            "`related_tests`, and `risk_report`.",
+            f"CLI fallback: refresh with `{command} scan .`, then use `{command} explain --repo . path/to/file.py` "
+            f"or `{command} find --repo . SymbolName`.",
+            "The generated catalog is `.code-intel/catalog.sqlite`; do not commit it.",
             NOTE_END,
         ]
     )
