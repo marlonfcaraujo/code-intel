@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
 
@@ -81,10 +83,12 @@ class CatalogStore:
                 CREATE INDEX idx_dependencies_target ON dependencies(target_path);
                 """
             )
+            self._create_usage_tables(connection)
 
     def write_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:
         """Persist a full catalog."""
         with self.connect() as connection:
+            self._create_usage_tables(connection)
             connection.executemany(
                 "INSERT INTO meta(key, value) VALUES (?, ?)",
                 sorted(metadata.items()),
@@ -96,9 +100,18 @@ class CatalogStore:
 
     def get_meta(self) -> dict[str, str]:
         """Return catalog metadata."""
+        if not self.has_catalog():
+            return {}
         with self.connect() as connection:
             rows = connection.execute("SELECT key, value FROM meta ORDER BY key").fetchall()
         return {row["key"]: row["value"] for row in rows}
+
+    def has_catalog(self) -> bool:
+        """Return true when catalog tables are present."""
+        if not self.database_path.exists():
+            return False
+        with self.connect() as connection:
+            return self._table_exists(connection, "files") and self._table_exists(connection, "symbols")
 
     def file_count(self) -> int:
         """Return the number of cataloged files."""
@@ -166,12 +179,12 @@ class CatalogStore:
             return connection.execute("SELECT * FROM files WHERE path = ?", (path,)).fetchone()
 
     def list_files(self) -> list[sqlite3.Row]:
-        """Return all indexed files."""
+        """Return all cataloged files."""
         with self.connect() as connection:
             return connection.execute("SELECT * FROM files ORDER BY path").fetchall()
 
     def list_internal_dependencies(self) -> list[sqlite3.Row]:
-        """Return dependency rows that resolved to indexed files."""
+        """Return dependency rows that resolved to cataloged files."""
         with self.connect() as connection:
             return connection.execute(
                 """
@@ -206,6 +219,86 @@ class CatalogStore:
                 "SELECT * FROM symbols WHERE path = ? ORDER BY line, name",
                 (path,),
             ).fetchall()
+
+    def record_usage_event(
+        self,
+        *,
+        tool: str,
+        provider: str,
+        query: str = "",
+        target_path: str = "",
+        result_count: int = 0,
+        candidate_files: int = 0,
+        returned_files: int = 0,
+        estimated_saved_tokens: int = 0,
+    ) -> None:
+        """Record one code-intel lookup event."""
+        with self.connect() as connection:
+            self._create_usage_tables(connection)
+            connection.execute(
+                """
+                INSERT INTO usage_events(
+                    created_at, tool, provider, query, target_path, result_count,
+                    candidate_files, returned_files, estimated_saved_tokens
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                    tool,
+                    provider,
+                    query,
+                    target_path,
+                    result_count,
+                    candidate_files,
+                    returned_files,
+                    estimated_saved_tokens,
+                ),
+            )
+
+    def usage_summary(self) -> dict[str, Any]:
+        """Return aggregate code-intel usage and estimated savings."""
+        if not self.database_path.exists():
+            return _empty_usage_summary()
+        with self.connect() as connection:
+            if not self._table_exists(connection, "usage_events"):
+                return _empty_usage_summary()
+            totals = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS events,
+                    COALESCE(SUM(estimated_saved_tokens), 0) AS estimated_saved_tokens,
+                    COALESCE(SUM(candidate_files), 0) AS candidate_files,
+                    COALESCE(SUM(returned_files), 0) AS returned_files
+                FROM usage_events
+                """
+            ).fetchone()
+            by_tool = connection.execute(
+                """
+                SELECT tool, provider, COUNT(*) AS events,
+                       COALESCE(SUM(estimated_saved_tokens), 0) AS estimated_saved_tokens
+                FROM usage_events
+                GROUP BY tool, provider
+                ORDER BY estimated_saved_tokens DESC, events DESC
+                """
+            ).fetchall()
+            recent = connection.execute(
+                """
+                SELECT created_at, tool, provider, query, target_path, result_count,
+                       estimated_saved_tokens
+                FROM usage_events
+                ORDER BY id DESC
+                LIMIT 10
+                """
+            ).fetchall()
+        return {
+            "events": int(totals["events"]),
+            "estimated_saved_tokens": int(totals["estimated_saved_tokens"]),
+            "candidate_files": int(totals["candidate_files"]),
+            "returned_files": int(totals["returned_files"]),
+            "by_tool": [dict(row) for row in by_tool],
+            "recent": [dict(row) for row in recent],
+        }
 
     def _insert_file(self, connection: sqlite3.Connection, source_file: SourceFile) -> None:
         connection.execute(
@@ -252,3 +345,39 @@ class CatalogStore:
                 for dependency in dependencies
             ],
         )
+
+    def _create_usage_tables(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                tool TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                query TEXT NOT NULL,
+                target_path TEXT NOT NULL,
+                result_count INTEGER NOT NULL,
+                candidate_files INTEGER NOT NULL,
+                returned_files INTEGER NOT NULL,
+                estimated_saved_tokens INTEGER NOT NULL
+            )
+            """
+        )
+
+    def _table_exists(self, connection: sqlite3.Connection, table_name: str) -> bool:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
+
+def _empty_usage_summary() -> dict[str, Any]:
+    return {
+        "events": 0,
+        "estimated_saved_tokens": 0,
+        "candidate_files": 0,
+        "returned_files": 0,
+        "by_tool": [],
+        "recent": [],
+    }

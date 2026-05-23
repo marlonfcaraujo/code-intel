@@ -71,9 +71,9 @@ def build_agent_note_section(command_prefix: str) -> str:
             "",
             "Use code-intel for repository-aware navigation before non-trivial code changes, similar to jCodemunch.",
             "Prefer the MCP server tools when configured: `catalog_repo`, `find_symbols`, `explain_file`, "
-            "`related_tests`, and `risk_report`.",
+            "`related_tests`, `risk_report`, and `savings_report`.",
             f"CLI fallback: refresh with `{command} scan .`, then use `{command} explain --repo . path/to/file.py` "
-            f"or `{command} find --repo . SymbolName`.",
+            f"or `{command} find --repo . SymbolName`; check impact with `{command} savings --repo .`.",
             "The generated catalog is `.code-intel/catalog.sqlite`; do not commit it.",
             NOTE_END,
         ]

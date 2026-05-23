@@ -10,6 +10,7 @@ from code_intel.mcp_server import (
     find_symbols_tool,
     related_tests_tool,
     risk_report_tool,
+    savings_report_tool,
 )
 
 
@@ -22,13 +23,16 @@ def test_mcp_tool_helpers_return_catalog_data(tmp_path: Path) -> None:
     tests = related_tests_tool("src/app/service.py", repo_path=str(repo))
     risk = risk_report_tool(repo_path=str(repo), limit=5)
     health = catalog_health_tool(str(repo))
+    savings = savings_report_tool(str(repo))
 
-    assert catalog["file_count"] == 3
+    assert catalog["file_count"] == 4
     assert symbols["symbols"][0]["path"] == "src/app/service.py"
     assert "src/app/api.py" in explanation["direct_dependents"]
     assert tests["tests"][0]["path"] == "tests/test_service.py"
     assert risk["files"]
     assert health["catalog_exists"] is True
+    assert savings["events"] >= 4
+    assert savings["estimated_saved_tokens"] > 0
 
 
 def test_mcp_related_tests_handles_unknown_file(tmp_path: Path) -> None:
@@ -47,5 +51,6 @@ def _make_repo(tmp_path: Path) -> Path:
     (repo / "tests").mkdir()
     (repo / "src/app/service.py").write_text("class Service:\n    pass\n")
     (repo / "src/app/api.py").write_text("from .service import Service\n")
+    (repo / "src/app/extra.py").write_text("\n".join(f"VALUE_{index} = {index}" for index in range(60)))
     (repo / "tests/test_service.py").write_text("from src.app.service import Service\n")
     return repo

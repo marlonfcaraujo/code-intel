@@ -9,10 +9,11 @@ engineering questions:
 - which files depend on a file
 - which tests are likely related to a change
 - which files have the highest fan-in risk
+- how many file reads and tokens the tool likely avoided
 
 The catalog is stored under `.code-intel/catalog.sqlite` by default and is ignored
-by git. The tool is designed to work as a standalone CLI first, with provider and
-repo-specific plugin hooks added over time.
+by git. Symbol search can use the built-in catalog or a local jCodemunch database
+when one exists for the same repository.
 
 ## Install for development
 
@@ -26,11 +27,29 @@ uv run code-intel --help
 ```bash
 code-intel scan .
 code-intel find WorkflowOrchestrator
+code-intel find WorkflowOrchestrator --provider jcodemunch
 code-intel explain src/void/api/routes.py
 code-intel tests src/void/api/routes.py
 code-intel risk --top 20
+code-intel savings --repo .
 code-intel doctor .
 ```
+
+`find` defaults to `--provider auto`, which searches jCodemunch first when a
+matching local database exists, then falls back to the code-intel catalog.
+
+## Savings report
+
+Lookup commands record a small local usage event in `.code-intel/catalog.sqlite`.
+The `savings` command reports estimated saved tokens and avoided file reads:
+
+```bash
+code-intel savings --repo .
+code-intel savings --repo . --json
+```
+
+The estimate compares the size of the cataloged repository to the smaller set of
+files returned by a targeted lookup. It is directional, not billing-grade.
 
 ## MCP server
 
@@ -70,6 +89,7 @@ Tools exposed by the MCP server:
 - `related_tests`
 - `risk_report`
 - `catalog_health`
+- `savings_report`
 
 To teach Claude/Codex in a repository to use the tool, upsert the managed note
 into `CLAUDE.md` and `AGENTS.md`:
@@ -91,5 +111,5 @@ uv run code-intel install-agent-notes /path/to/repo \
 - Keep generated catalogs out of normal commits.
 - Prefer structured language parsers where available.
 - Make repo-specific knowledge a plugin/config concern, not core behavior.
-- Keep the CLI useful without jCodemunch, but allow jCodemunch-backed providers
-  later when available.
+- Keep the CLI useful without jCodemunch, while using jCodemunch as a provider
+  when a matching local database is available.
