@@ -35,6 +35,8 @@ def find_symbols_tool(
     """Search symbols in a repository through the selected provider."""
     repo_root = Path(repo_path).resolve()
     store = CatalogStore.for_repo(repo_root)
+    if provider == "catalog":
+        store = _require_catalog(repo_root)
     bounded_limit = max(1, min(limit, 100))
     result = search_symbols(repo_root, store, query, limit=bounded_limit, provider=provider)
     _record_usage_event(
@@ -233,6 +235,8 @@ def _record_usage_event(
     target_path: str = "",
     result_count: int = 0,
 ) -> None:
+    if not store.has_catalog():
+        return
     metrics = estimate_saved_tokens_for_paths(store, selected_paths, result_count)
     store.record_usage_event(
         tool=tool,

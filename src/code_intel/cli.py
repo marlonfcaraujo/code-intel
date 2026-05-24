@@ -119,6 +119,8 @@ def _cmd_find(args: argparse.Namespace) -> int:
     repo_root = Path(args.repo).resolve()
     store = _store_from_args(args)
     provider: ProviderName = args.provider
+    if provider == "catalog":
+        _require_catalog(store)
     result = search_symbols(repo_root, store, args.query, limit=args.limit, provider=provider)
     if not result.symbols:
         _record_usage_event(
@@ -317,6 +319,8 @@ def _record_usage_event(
     target_path: str = "",
     result_count: int = 0,
 ) -> None:
+    if not store.has_catalog():
+        return
     metrics = estimate_saved_tokens_for_paths(store, selected_paths, result_count)
     store.record_usage_event(
         tool=tool,

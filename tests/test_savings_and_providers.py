@@ -23,6 +23,16 @@ def test_cli_records_lookup_savings(tmp_path: Path, capsys) -> None:
     assert "find (catalog): 1 events" in captured.out
 
 
+def test_cli_find_requires_scan_for_catalog(tmp_path: Path, capsys) -> None:
+    repo = _make_repo(tmp_path)
+
+    assert main(["find", "--repo", str(repo), "Service"]) == 1
+
+    captured = capsys.readouterr()
+    assert "Run `code-intel scan` first" in captured.err
+    assert not (repo / ".code-intel/catalog.sqlite").exists()
+
+
 def test_catalog_store_usage_summary(tmp_path: Path) -> None:
     store = CatalogStore.for_repo(tmp_path)
 
@@ -89,6 +99,18 @@ def test_unified_search_uses_jcodemunch_when_explicit(tmp_path: Path, monkeypatc
 
     assert result.provider == "jcodemunch"
     assert result.symbols[0]["summary"] == "Runs service work."
+
+
+def test_cli_jcodemunch_provider_does_not_create_catalog(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = _make_repo(tmp_path)
+    _make_jcodemunch_database(tmp_path, repo)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert main(["find", "--repo", str(repo), "--provider", "jcodemunch", "Service"]) == 0
+
+    captured = capsys.readouterr()
+    assert "src/app/service.py" in captured.out
+    assert not (repo / ".code-intel/catalog.sqlite").exists()
 
 
 def _make_repo(tmp_path: Path) -> Path:
