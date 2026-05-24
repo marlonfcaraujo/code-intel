@@ -42,7 +42,7 @@ service, or a background daemon.
 From this checkout:
 
 ```bash
-cd /Users/maraujo/git_personal/code-intel
+cd /path/to/code-intel
 uv sync --group dev
 uv run code-intel --help
 ```
@@ -50,27 +50,27 @@ uv run code-intel --help
 Catalog any repository:
 
 ```bash
-uv run code-intel scan /Users/maraujo/git/vme_bmaas
+uv run code-intel scan /path/to/repo
 ```
 
 Search the generated catalog:
 
 ```bash
-uv run code-intel find --repo /Users/maraujo/git/vme_bmaas get_database_url
+uv run code-intel find --repo /path/to/repo get_database_url
 ```
 
 Check impact before editing a file:
 
 ```bash
-uv run code-intel explain --repo /Users/maraujo/git/vme_bmaas alembic/env.py
-uv run code-intel tests --repo /Users/maraujo/git/vme_bmaas alembic/env.py
-uv run code-intel risk --repo /Users/maraujo/git/vme_bmaas --top 20
+uv run code-intel explain --repo /path/to/repo src/app/service.py
+uv run code-intel tests --repo /path/to/repo src/app/service.py
+uv run code-intel risk --repo /path/to/repo --top 20
 ```
 
 Show the usage and estimated savings report:
 
 ```bash
-uv run code-intel savings --repo /Users/maraujo/git/vme_bmaas
+uv run code-intel savings --repo /path/to/repo
 ```
 
 ## What It Creates
@@ -113,7 +113,7 @@ Build or refresh the catalog.
 
 ```bash
 code-intel scan [REPO]
-code-intel scan /Users/maraujo/git/vme_bmaas
+code-intel scan /path/to/repo
 ```
 
 If the database does not exist, `scan` creates `.code-intel/` and
@@ -221,7 +221,7 @@ Example MCP client config when running from this checkout:
       "args": [
         "run",
         "--project",
-        "/Users/maraujo/git_personal/code-intel",
+        "/path/to/code-intel",
         "code-intel",
         "serve-mcp",
         "--repo",
@@ -261,7 +261,7 @@ From this checkout:
 
 ```bash
 uv run code-intel install-agent-notes /path/to/repo \
-  --command-prefix "uv run --project /Users/maraujo/git_personal/code-intel code-intel"
+  --command-prefix "uv run --project /path/to/code-intel code-intel"
 ```
 
 The generated section is bounded by comment markers, so re-running the command
