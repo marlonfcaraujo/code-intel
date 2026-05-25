@@ -37,9 +37,11 @@ Normal use is self-contained. `code-intel` creates and reads its own local
 catalog at `.code-intel/catalog.sqlite`. It does not require jCodemunch, a hosted
 service, or a background daemon.
 
-## Quickstart
+## Installation
 
-From this checkout:
+### Run from a source checkout
+
+Use this during development or before publishing the package:
 
 ```bash
 cd /path/to/code-intel
@@ -47,30 +49,64 @@ uv sync --group dev
 uv run code-intel --help
 ```
 
+When operating on another repository from this checkout, pass `--project` so the
+command works from any current directory:
+
+```bash
+uv run --project /path/to/code-intel code-intel scan /path/to/repo
+```
+
+### Install as a local tool
+
+Install the CLI from a local checkout when you want `code-intel` available on
+your shell path:
+
+```bash
+uv tool install /path/to/code-intel
+code-intel --help
+```
+
+Reinstall after local changes:
+
+```bash
+uv tool install --force /path/to/code-intel
+```
+
+### Install MCP support
+
+MCP support is optional:
+
+```bash
+cd /path/to/code-intel
+uv sync --extra mcp --group dev
+```
+
+## Quickstart
+
 Catalog any repository:
 
 ```bash
-uv run code-intel scan /path/to/repo
+code-intel scan /path/to/repo
 ```
 
 Search the generated catalog:
 
 ```bash
-uv run code-intel find --repo /path/to/repo get_database_url
+code-intel find --repo /path/to/repo get_database_url
 ```
 
 Check impact before editing a file:
 
 ```bash
-uv run code-intel explain --repo /path/to/repo src/app/service.py
-uv run code-intel tests --repo /path/to/repo src/app/service.py
-uv run code-intel risk --repo /path/to/repo --top 20
+code-intel explain --repo /path/to/repo src/app/service.py
+code-intel tests --repo /path/to/repo src/app/service.py
+code-intel risk --repo /path/to/repo --top 20
 ```
 
 Show the usage and estimated savings report:
 
 ```bash
-uv run code-intel savings --repo /path/to/repo
+code-intel savings --repo /path/to/repo
 ```
 
 ## What It Creates
@@ -197,18 +233,46 @@ code-intel doctor /path/to/repo
 
 Use this when an agent is unsure whether a repo has been scanned.
 
-## MCP Server
+## Search Flow
 
-Install optional MCP dependencies:
-
-```bash
-uv sync --extra mcp --group dev
+```mermaid
+flowchart TD
+    A["Agent or human asks a repo question"] --> B{"CLI or MCP?"}
+    B -->|CLI| C["doctor / scan / find / explain / tests / risk"]
+    B -->|MCP| D["catalog_health"]
+    D --> E{"catalog exists?"}
+    E -->|No| F["catalog_repo"]
+    E -->|Yes| G["choose lookup tool"]
+    F --> H[(".code-intel/catalog.sqlite")]
+    C --> H
+    H --> G
+    G --> I["find_symbols: symbol path + line"]
+    G --> J["explain_file: direct + transitive dependents"]
+    G --> K["related_tests: likely tests"]
+    G --> L["risk_report: high blast-radius files"]
+    I --> M["record usage_events"]
+    J --> M
+    K --> M
+    L --> M
+    M --> N["savings_report / savings"]
 ```
+
+The important guardrail is that the built-in catalog provider never silently
+falls back to a missing index. If the catalog is absent, `find` tells you to run
+`scan`, and the MCP flow should call `catalog_repo`.
+
+## MCP Server
 
 Run the MCP server over stdio:
 
 ```bash
-uv run code-intel serve-mcp --repo /path/to/repo
+code-intel serve-mcp --repo /path/to/repo
+```
+
+When running from a source checkout without a global install:
+
+```bash
+uv run --project /path/to/code-intel code-intel serve-mcp --repo /path/to/repo
 ```
 
 Example MCP client config when running from this checkout:
@@ -267,6 +331,29 @@ uv run code-intel install-agent-notes /path/to/repo \
 The generated section is bounded by comment markers, so re-running the command
 updates the same block instead of appending duplicates.
 
+## Replacing jCodemunch Day-to-Day
+
+`code-intel` is intended to replace the common jCodemunch workflow used by
+coding agents: orient to a repo, find symbols, understand file impact, choose
+tests, and report saved context. It is not yet a drop-in replacement for every
+jCodemunch feature such as semantic embeddings, watcher hooks, AI summaries, or
+hosted Q&A.
+
+| Day-to-day need | code-intel replacement |
+| --- | --- |
+| Create or refresh repo knowledge | `scan` or MCP `catalog_repo` |
+| Check whether repo knowledge exists | `doctor` or MCP `catalog_health` |
+| Find symbols | `find` or MCP `find_symbols` |
+| Explain impact before edits | `explain` or MCP `explain_file` |
+| Pick likely tests | `tests` or MCP `related_tests` |
+| Find risky files | `risk` or MCP `risk_report` |
+| Show value after use | `savings` or MCP `savings_report` |
+| Migrate from existing jCodemunch data | explicit `--provider jcodemunch` |
+
+Default behavior stays independent. The `jcodemunch` provider is only a bridge
+for migration or comparison when a local jCodemunch SQLite database already
+exists.
+
 ## AI Workflow Comparison
 
 | Task | Without code-intel | With code-intel |
@@ -276,6 +363,27 @@ updates the same block instead of appending duplicates.
 | Pick tests | guess from file names | `tests` or `related_tests` |
 | Find risky files | broad manual inspection | `risk` or `risk_report` |
 | Measure value | anecdotal | `savings` or `savings_report` |
+
+## Validation Snapshot
+
+Sample local validation on a medium Python repository. Timings are from one
+machine and should be treated as directional, not benchmarks.
+
+| Check | Result |
+| --- | --- |
+| Test suite | `19 passed` |
+| Initial scan | 516 files, 8,353 symbols, 3,979 dependencies in 1.49s |
+| Catalog lookup | exact symbol path and line in 0.09s |
+| `git grep` comparison | raw text matches in 0.02s, including call sites |
+| jCodemunch compatibility provider | same symbol found in 0.16s when an existing jCodemunch DB was present |
+| Missing catalog guard | `find` exits with "Run `code-intel scan` first" and creates no partial DB |
+| Risk report | returns direct dependents, transitive dependents, test counts, and risk labels |
+| Savings estimate | one catalog lookup estimated about 2.0M avoided context tokens on the sample repo |
+
+The comparison is intentionally conservative: grep can be faster for a single
+text query, but it returns text matches rather than structured symbol records,
+dependency impact, likely tests, risk ranking, and savings telemetry. The value
+for agents is less broad context loading and more targeted next actions.
 
 ## Supported Source Types
 
