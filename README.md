@@ -259,6 +259,20 @@ flowchart LR
     J --> L["record usage_events"]
     K --> L
     L --> M["savings / savings_report"]
+
+    classDef question fill:#DBEAFE,stroke:#2563EB,color:#0F172A,stroke-width:2px
+    classDef catalog fill:#DCFCE7,stroke:#16A34A,color:#052E16,stroke-width:2px
+    classDef table fill:#F3E8FF,stroke:#9333EA,color:#2E1065,stroke-width:2px
+    classDef tool fill:#FEF3C7,stroke:#D97706,color:#451A03,stroke-width:2px
+    classDef answer fill:#FFE4E6,stroke:#E11D48,color:#4C0519,stroke-width:2px
+    classDef metric fill:#CCFBF1,stroke:#0F766E,color:#042F2E,stroke-width:2px
+
+    class A,B question
+    class C,D catalog
+    class E,F,G table
+    class H,I tool
+    class J,K answer
+    class L,M metric
 ```
 
 The important guardrail is that the built-in catalog provider never silently
@@ -278,6 +292,18 @@ flowchart TD
     G --> H[("usage_events")]
     H --> I["savings CLI"]
     H --> J["MCP savings_report"]
+
+    classDef input fill:#DBEAFE,stroke:#2563EB,color:#0F172A,stroke-width:2px
+    classDef estimate fill:#FEF3C7,stroke:#D97706,color:#451A03,stroke-width:2px
+    classDef formula fill:#F3E8FF,stroke:#9333EA,color:#2E1065,stroke-width:2px
+    classDef storage fill:#DCFCE7,stroke:#16A34A,color:#052E16,stroke-width:2px
+    classDef report fill:#CCFBF1,stroke:#0F766E,color:#042F2E,stroke-width:2px
+
+    class A,C,E input
+    class B,D,F estimate
+    class G formula
+    class H storage
+    class I,J report
 ```
 
 The savings number is an estimate of avoided context, not a billing statement.
@@ -291,6 +317,7 @@ returned one file and one result row, avoiding most of the cataloged repository
 context.
 
 ```mermaid
+%%{init: {"themeVariables": {"pie1": "#16A34A", "pie2": "#F59E0B", "pie3": "#E11D48", "pieOuterStrokeWidth": "2px", "pieSectionTextColor": "#0F172A", "pieLegendTextColor": "#0F172A"}} }%%
 pie showData
     title Sample one-lookup context estimate
     "Avoided repo context" : 2037848
