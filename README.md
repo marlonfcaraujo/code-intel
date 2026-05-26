@@ -238,33 +238,65 @@ code-intel doctor /path/to/repo
 
 Use this when an agent is unsure whether a repo has been scanned.
 
-## Search Flow
+## Search And Savings Flow
+
+### Lookup Flow
 
 ```mermaid
-flowchart TD
-    A["Agent or human asks a repo question"] --> B{"CLI or MCP?"}
-    B -->|CLI| C["doctor / scan / find / explain / tests / risk"]
-    B -->|MCP| D["catalog_health"]
-    D --> E{"catalog exists?"}
-    E -->|No| F["catalog_repo"]
-    E -->|Yes| G["choose lookup tool"]
-    F --> H[(".code-intel/catalog.sqlite")]
-    C --> H
-    H --> G
-    G --> I["find_symbols: symbol path + line"]
-    G --> J["explain_file: direct + transitive dependents"]
-    G --> K["related_tests: likely tests"]
-    G --> L["risk_report: high blast-radius files"]
-    I --> M["record usage_events"]
-    J --> M
-    K --> M
-    L --> M
-    M --> N["savings_report / savings"]
+flowchart LR
+    A["Agent or human asks a repo question"] --> B{"Catalog exists?"}
+    B -->|No| C["scan or MCP catalog_repo"]
+    B -->|Yes| D[(".code-intel/catalog.sqlite")]
+    C --> D
+    D --> E["files table"]
+    D --> F["symbols table"]
+    D --> G["dependencies table"]
+    F --> H["find / find_symbols"]
+    E --> I["tests / risk / explain"]
+    G --> I
+    H --> J["Targeted answer: path, line, signature"]
+    I --> K["Impact, likely tests, or risk ranking"]
+    J --> L["record usage_events"]
+    K --> L
+    L --> M["savings / savings_report"]
 ```
 
 The important guardrail is that the built-in catalog provider never silently
 falls back to a missing index. If the catalog is absent, `find` tells you to run
 `scan`, and the MCP flow should call `catalog_repo`.
+
+### Savings Metric Flow
+
+```mermaid
+flowchart TD
+    A["Cataloged files"] --> B["Total repo estimate = sum(line_count x 8 tokens)"]
+    C["Returned lookup paths"] --> D["Selected file estimate = selected line_count x 8"]
+    E["Lookup result rows"] --> F["Result payload estimate = result_count x 40"]
+    B --> G["estimated_saved_tokens = max(0, total - selected - payload)"]
+    D --> G
+    F --> G
+    G --> H[("usage_events")]
+    H --> I["savings CLI"]
+    H --> J["MCP savings_report"]
+```
+
+The savings number is an estimate of avoided context, not a billing statement.
+It answers: "How much repository text did this targeted lookup likely avoid
+loading into the agent context?"
+
+### Sample Savings Chart
+
+This sample is from a one-symbol lookup on a 516-file repository. The lookup
+returned one file and one result row, avoiding most of the cataloged repository
+context.
+
+```mermaid
+pie showData
+    title Sample one-lookup context estimate
+    "Avoided repo context" : 2037848
+    "Selected file context" : 1024
+    "Returned result payload" : 40
+```
 
 ## MCP Server
 
