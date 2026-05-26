@@ -156,6 +156,11 @@ If the database does not exist, `scan` creates `.code-intel/` and
 `catalog.sqlite`. If it already exists, `scan` rebuilds it from the current
 source tree.
 
+Nested worktree directories such as `.worktree/`, `.worktrees/`, and hidden
+agent worktree folders are excluded when scanning a parent repository. If you
+run `scan` with a worktree path as the repository root, that worktree is
+cataloged normally and gets its own `.code-intel/catalog.sqlite`.
+
 ### `find`
 
 Find cataloged symbols without scanning the whole repo.

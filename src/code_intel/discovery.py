@@ -15,6 +15,8 @@ SKIP_DIR_NAMES = {
     ".ruff_cache",
     ".tox",
     ".venv",
+    ".agents",
+    ".claude",
     "__pycache__",
     "build",
     "coverage",
@@ -22,6 +24,8 @@ SKIP_DIR_NAMES = {
     "node_modules",
     "target",
     "venv",
+    ".worktree",
+    ".worktrees",
 }
 
 
