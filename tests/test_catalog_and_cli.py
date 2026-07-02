@@ -186,6 +186,26 @@ def test_catalog_and_cli_search_indexed_text(tmp_path: Path, capsys) -> None:
     assert "src/app/service.py:3" in capsys.readouterr().out
 
 
+def test_catalog_redacts_secret_values_from_text_and_symbol_signatures(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "settings.py").write_text(
+        'API_TOKEN = "sk-1234567890abcdefghijklmnopqrstuvwxyz"\ndef token_name() -> str:\n    return API_TOKEN\n'
+    )
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    secret_matches = store.search_text("sk-1234567890", limit=5, context_lines=0)
+    token_matches = store.search_text("API_TOKEN", limit=5, context_lines=0)
+    symbols = store.search_symbols("API_TOKEN")
+
+    assert secret_matches == []
+    assert token_matches
+    assert "sk-1234567890" not in token_matches[0].content
+    assert "[REDACTED_SECRET]" in token_matches[0].content
+    assert symbols[0]["signature"] == 'API_TOKEN = "[REDACTED_SECRET]"'
+
+
 def test_cli_lookup_combines_symbols_and_text(tmp_path: Path, capsys) -> None:
     repo = _make_python_repo(tmp_path)
     build_catalog(repo)

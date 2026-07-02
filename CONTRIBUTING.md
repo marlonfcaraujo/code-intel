@@ -33,7 +33,7 @@ payload size, include a benchmark or workflow-benchmark result in the PR:
 
 ```bash
 uv run code-intel scan . --incremental --skip-unchanged-meta --json
-uv run code-intel workflow-benchmark --workspace void --query SurfacePanel --source-first --json --summary
+uv run code-intel workflow-benchmark --workspace backend-ui --query PrimaryPanel --source-first --json --summary
 ```
 
 ## Pull Request Expectations
