@@ -13,7 +13,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/marlonfcaraujo/code-intel/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/marlonfcaraujo/code-intel/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-3776AB">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-15803D">
   <img alt="SQLite catalog" src="https://img.shields.io/badge/catalog-SQLite-003B57">
   <img alt="MCP ready" src="https://img.shields.io/badge/MCP-ready-4B5563">
   <img alt="No external service" src="https://img.shields.io/badge/external%20service-not%20required-15803D">
@@ -36,6 +38,26 @@ needs quick answers before editing:
 Normal use is self-contained. `code-intel` creates and reads its own local
 catalog at `.code-intel/catalog.sqlite`. It does not require jCodemunch, a hosted
 service, or a background daemon.
+
+## Why code-intel
+
+`code-intel` is built for the part of coding-agent work where most time and
+tokens disappear: repo orientation, symbol lookup, cross-repo backend/UI context,
+and deciding which files are worth reading.
+
+| Compared with | What code-intel adds |
+| --- | --- |
+| `grep` / `ripgrep` | Structured symbols, file ranking, exact references, dependency impact, likely tests, and bounded snippets instead of raw text matches |
+| direct file reads | `outline`, `context-pack`, and `workspace-context` let agents inspect the smallest useful source ranges first |
+| stale local indexes | explicit health, scan, and benchmark commands show freshness, file counts, symbol counts, and provider coverage before trusting results |
+| jCodemunch day to day | local SQLite catalogs, backend+UI workspaces, source-first lookup, UI label/CSS/string search, MCP tools, token-savings telemetry, and repeatable provider benchmarks |
+| hosted code search | no external service, no daemon requirement, and per-repo catalogs that stay beside the source tree |
+
+The goal is not to beat every tool on every single raw query. A warmed `grep`
+can be faster for one string, and a stale one-file index can look fast because it
+has almost nothing to search. The goal is better agent behavior: fresher coverage,
+source-ranked results, bounded context payloads, and evidence about what the
+agent avoided loading.
 
 ## Installation
 
@@ -87,12 +109,19 @@ Catalog any repository:
 
 ```bash
 code-intel scan /path/to/repo
+code-intel workspace-scan --workspace void --incremental --skip-unchanged-meta --json
 ```
 
 Search the generated catalog:
 
 ```bash
+code-intel lookup --repo /path/to/repo get_database_url
 code-intel find --repo /path/to/repo get_database_url
+code-intel search-text --repo /path/to/repo "API_BASE_URL"
+code-intel references --repo /path/to/repo get_database_url
+code-intel tree --repo /path/to/repo
+code-intel repo-outline --repo /path/to/repo
+code-intel workspace-outline --workspace void
 ```
 
 Check impact before editing a file:
@@ -124,7 +153,9 @@ The SQLite catalog contains:
 | `meta` | repo path, generated time, file count |
 | `files` | discovered source files, language, line count, byte size |
 | `symbols` | names, kinds, paths, line numbers, signatures, docs |
-| `dependencies` | resolved and unresolved import edges |
+| `dependencies` | import edges with code, standard-library, external package, asset, or unresolved category |
+| `text_index` | FTS5 trigram index for fast source text matching |
+| `text_lines` | indexed line table for fast snippets and context |
 | `usage_events` | lookup events used for savings reports |
 
 The catalog is generated data. Keep it out of commits.
@@ -150,11 +181,80 @@ Build or refresh the catalog.
 ```bash
 code-intel scan [REPO]
 code-intel scan /path/to/repo
+code-intel scan /path/to/repo --incremental
+code-intel scan /path/to/repo --workers 1
+code-intel scan /path/to/repo --incremental --json
+code-intel scan /path/to/repo --incremental --skip-unchanged-meta --json
 ```
 
 If the database does not exist, `scan` creates `.code-intel/` and
 `catalog.sqlite`. If it already exists, `scan` rebuilds it from the current
 source tree.
+
+Use `--incremental` for scheduled refreshes. When source paths are unchanged,
+code-intel reuses unchanged file analyses and reparses only changed files. When
+files are added or removed, it applies a partial update and reparses dependency
+sources that may be affected by changed path resolution. Catalog metadata also
+includes an analyzer version; when the indexer learns a new language or symbol
+rule, the next incremental scan rebuilds once instead of preserving stale
+analysis. Incremental writes are scoped to changed, removed, dependency-affected,
+or metadata-touched paths, and the source-text index is updated for only those
+affected rows.
+For frequent background jobs, add `--skip-unchanged-meta` to avoid the
+metadata-only SQLite write when no files changed; normal incremental scans keep
+updating metadata timestamps by default.
+
+File analysis uses an adaptive worker count by default: smaller repositories
+stay serial to avoid thread overhead, while larger repositories use bounded
+parallel workers. Use `--workers 1` for serial profiling or a fixed worker count
+for benchmarking.
+
+Use `--json` when scan output will be consumed by a scheduler or benchmark. The
+payload includes reused, changed, and removed file counts, indexed text-line
+count, written file count, analysis worker count, and phase timings for
+discovery, change detection, analysis, and catalog writes.
+
+### `install-refresh-job`
+
+Install a macOS `launchd` job that keeps one or more catalogs warm with
+incremental scans.
+
+```bash
+code-intel install-refresh-job /path/to/repo /path/to/repo/ui/src \
+  --interval-minutes 180
+```
+
+For a saved backend+UI workspace, use the workspace name instead of repeating
+paths:
+
+```bash
+code-intel install-refresh-job --workspace void --interval-minutes 180
+```
+
+When running from this source checkout, generate the job with `uv` so launchd can
+find the development copy:
+
+```bash
+uv run code-intel install-refresh-job \
+  --workspace void \
+  --project /Users/maraujo/git_personal/code-intel \
+  --interval-minutes 180 \
+  --label com.code-intel.refresh.dev
+```
+
+The command writes a runner under `~/.code-intel/launchd/` and a plist under
+`~/Library/LaunchAgents/`. Load it with:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.code-intel.refresh.dev.plist
+launchctl start com.code-intel.refresh.dev
+```
+
+Use `--dry-run` to inspect the paths without writing files.
+Generated refresh jobs use
+`workspace-scan --incremental --skip-unchanged-meta --json` so all selected
+repositories refresh in one process with structured timing output while avoiding
+metadata-only writes on no-change runs.
 
 Nested worktree directories such as `.worktree/`, `.worktrees/`, and hidden
 agent worktree folders are excluded when scanning a parent repository. If you
@@ -182,6 +282,155 @@ code-intel find --repo /path/to/repo SymbolName --provider jcodemunch
 The `jcodemunch` provider only reads an existing local jCodemunch SQLite
 database when explicitly requested. It is not required for normal operation.
 
+### `lookup`
+
+Search symbols, file paths, and source text together when you do not know
+whether a query is a function/class name, file stem, UI label, CSS class,
+config key, or string fragment.
+
+```bash
+code-intel lookup --repo /path/to/repo SurfacePanel
+code-intel lookup --repo /path/to/repo SurfacePanel --source-first
+code-intel lookup --repo /path/to/repo "API_BASE_URL" --limit 10
+code-intel lookup --repo /path/to/repo "empty state copy" --json
+```
+
+Results are ranked with exact/prefix symbol matches first, followed by bounded
+file-path matches and source text snippets. Exact symbol or file-stem matches
+keep the default text side small so definition lookups do not fan out into every
+call site. Use `--text-limit 0` when the query is already a known symbol or file
+and usage lines are not needed; use a larger `--text-limit` when you explicitly
+want broader usage context.
+Use `--source-first` for the common implementation-first agent path; it tries
+symbol and file hits first, excludes tests, backfills from a wider candidate
+window so test files do not waste result slots, and only falls back to bounded
+source text when source/file lookup is empty. Pass `--text-limit 0` explicitly
+with `--source-first` when text fallback should stay disabled.
+Multi-word labels are also tried as bounded identifier/path variants, so a UI
+label like `Incoming Hardware` can resolve source-first to `IncomingHardware*`
+symbols or `incoming-hardware` paths before text fallback.
+Use this as the default agent entry point before loading files.
+
+### `workspace-lookup`
+
+Search several warm catalogs at once, useful when a task may cross backend and
+UI repositories.
+
+```bash
+code-intel workspace-lookup \
+  --repo /Users/maraujo/git/custom_connectors \
+  --repo /Users/maraujo/git/vme_bmaas \
+  rackCapacity
+code-intel workspace-lookup --repo /path/backend --repo /path/ui/src SurfacePanel --source-first --json
+code-intel workspace-lookup --workspace void VCENTER_CONFIGS --source-first --json
+```
+
+Results are repo-qualified (`[custom_connectors]`, `[ui/src]`, etc.) and use the
+same symbol/file/text ranking as `lookup`.
+
+### `context-pack` and `workspace-context`
+
+Turn ranked lookup hits into bounded source snippets, so agents can inspect the
+most relevant code without reading full files.
+
+```bash
+code-intel context-pack --repo /path/to/repo VCENTER_CONFIGS --max-files 2
+code-intel context-pack --repo /path/to/repo VCENTER_CONFIGS --text-limit 0 --max-files 1
+code-intel workspace-context --workspace void rackCapacity --max-files 2 --max-lines-per-file 30
+code-intel workspace-context --workspace void VCENTER_CONFIGS --source-first
+code-intel workspace-context --workspace void SurfacePanel --json
+```
+
+The output includes ranked hit metadata plus line-numbered snippets capped by
+`--max-files` and `--max-lines-per-file`. Use `--source-first` when the agent
+needs source implementation context first; it tries symbol/file matches before
+text, excludes tests, and falls back to bounded text only when no source/file
+hits exist. Use `related_tests` or `tests` when test context is the next step.
+MCP `context_pack` and `workspace_context` responses default to a compact JSON
+shape: nested hits and snippets use `repo_index` into the top-level
+`repo_paths` list instead of repeating absolute repository paths, and omit
+rank-only or derivable fields that remain available in full CLI JSON. They also
+omit ranked hit rows by default; pass `include_hits=true` when the agent needs
+lookup-hit metadata in addition to source snippets. MCP `workspace_context_many`
+accepts several related workspace queries in one call, reuses the same catalog
+stores, and returns one top-level repository map for the whole batch. It also
+auto-selects a shared top-level snippet table when that is smaller than repeating
+snippets under each query; pass `shared_snippets=false` to keep nested snippets.
+Exact repeated batch queries, including case-only variants, are built once and
+reused for each query row; the payload reports `unique_query_count` and
+`reused_query_count`.
+
+### `workspace-save`, `workspace-list`, and `workspace-scan`
+
+Save repeated backend/UI repo sets once, then use the workspace name for lookup,
+benchmarking, and scheduled refreshes.
+
+```bash
+code-intel workspace-save void \
+  --repo /Users/maraujo/git/custom_connectors \
+  --repo /Users/maraujo/git/vme_bmaas
+code-intel workspace-list
+code-intel workspace-scan --workspace void --incremental --skip-unchanged-meta --json
+code-intel workspace-lookup --workspace void rackCapacity
+code-intel workspace-benchmark --workspace void --query SurfacePanel --query VCENTER_CONFIGS
+code-intel workflow-benchmark --workspace void --query SurfacePanel --query VCENTER_CONFIGS
+```
+
+Workspace files are JSON under `~/.code-intel/workspaces/` by default.
+`workspace-scan` refreshes all selected repositories in one Python process,
+can scan independent repositories concurrently with `--repo-workers`, and accepts
+`--skip-unchanged-meta` for frequent no-change refreshes.
+
+### `search-text`
+
+Search indexed source text without loading broad file context.
+
+```bash
+code-intel search-text --repo /path/to/repo "API_BASE_URL"
+code-intel search-text --repo /path/to/repo "panel-fade" --context 0 --limit 10
+code-intel search-text --repo /path/to/repo "empty state copy" --json
+```
+
+The text index is line-based and uses SQLite FTS5 trigram matching, so it works
+for identifiers, UI labels, CSS classes, and string fragments. Results include
+`path:line`, the matching line, and optional nearby context.
+
+### `references` and `workspace-references`
+
+Find exact source references for an identifier or text fragment without broad
+grep output or full file reads.
+
+```bash
+code-intel references --repo /path/to/repo Service
+code-intel references --repo /path/to/repo Service --no-definitions --context 0
+code-intel workspace-references --workspace void SurfacePanel --json
+code-intel workspace-outline --workspace void --json
+code-intel workspace-references --workspace void SurfacePanel --summary-only --json
+```
+
+For identifier-shaped queries, the reference filter is boundary-aware, so
+`Service` does not match `ServiceExtra`. Results classify definition lines
+separately from non-definition references and return bounded snippets for each
+match. Use `--summary-only` for high-fanout identifiers when you only need a
+compact per-file map before choosing which files to inspect.
+
+### `tree`, `repo-outline`, and `workspace-outline`
+
+Inspect repository structure from the warm catalog instead of walking the
+filesystem or reading top-level files.
+
+```bash
+code-intel tree --repo /path/to/repo --max-depth 3
+code-intel tree --repo /path/to/repo --prefix src/custom_connectors/vcenter --json
+code-intel repo-outline --repo /path/to/repo --top-files 20 --json
+code-intel workspace-outline --workspace void --top-files 10 --json
+```
+
+`tree` returns directory/file entries with line and symbol counts. `repo-outline`
+returns language totals, directory summaries, and symbol-heavy files for fast
+orientation in large repositories. `workspace-outline` combines those summaries
+across backend/UI workspaces in one call.
+
 ### `explain`
 
 Show the likely impact of changing a file.
@@ -205,6 +454,30 @@ code-intel tests --repo /path/to/repo src/app/service.py
 Signals include matching file names, imports, and public source symbols
 mentioned in test files.
 
+### `outline`
+
+Show symbols declared by a cataloged file before reading full source.
+
+```bash
+code-intel outline --repo /path/to/repo src/app/service.py
+code-intel outline --repo /path/to/repo src/app/service.py --json
+```
+
+Use this to inspect classes, functions, methods, signatures, and line ranges
+with a much smaller context payload than a full file read.
+
+### `content`
+
+Read a bounded slice from a cataloged file.
+
+```bash
+code-intel content --repo /path/to/repo src/app/service.py --start-line 20 --end-line 80
+code-intel content --repo /path/to/repo src/app/service.py --json
+```
+
+Use this after `find`, `outline`, or `explain` identifies the exact source
+range needed for the coding task.
+
 ### `risk`
 
 Rank source files by blast-radius risk.
@@ -215,6 +488,98 @@ code-intel risk --repo /path/to/repo --top 20
 
 Use this before broad refactors or when deciding where extra test coverage
 matters most.
+
+### `benchmark`
+
+Compare real symbol lookup behavior across providers, or benchmark the built-in
+text and unified lookup workflows agents use day to day.
+
+```bash
+code-intel benchmark --repo /path/to/repo \
+  --query Service --query create_user \
+  --provider catalog --provider jcodemunch \
+  --mode symbol --repeat 9 --warmup 3
+code-intel benchmark --repo /path/to/repo --query SurfacePanel --mode lookup
+code-intel benchmark --repo /path/to/repo --query panel-fade --mode text --json
+code-intel benchmark --repo /path/to/repo --query Service --provider catalog --provider jcodemunch --json --summary
+```
+
+The report includes provider health, lookup latency, result counts, selected
+files, source/test path counts, first-result classification, overlap where
+multiple providers are comparable, and estimated avoided context. `jcodemunch`
+comparison is available for `symbol` mode; `text` and `lookup` benchmark the
+code-intel catalog workflow directly. Use `--summary` with `--json` when agents
+only need timings, result counts, saved-token estimates, top paths, quality
+signals, and overlap scores.
+
+### `workspace-benchmark`
+
+Measure unified lookup across several warm catalogs, including backend and UI
+source trees.
+
+```bash
+code-intel workspace-benchmark \
+  --repo /Users/maraujo/git/custom_connectors \
+  --repo /Users/maraujo/git/vme_bmaas \
+  --query rackCapacity \
+  --query SurfacePanel \
+  --query VCENTER_CONFIGS
+code-intel workspace-benchmark --workspace void --query SurfacePanel --json --summary
+```
+
+The report includes per-catalog health, query latency, selected files, and
+aggregate estimated avoided context for the whole workspace lookup.
+
+### `workflow-benchmark`
+
+Measure the full agent context-gathering workflow: lookup plus bounded source
+snippets from `context-pack` or `workspace-context`.
+
+```bash
+code-intel workflow-benchmark \
+  --workspace void \
+  --query SurfacePanel \
+  --query VCENTER_CONFIGS \
+  --source-first \
+  --repeat 9 \
+  --warmup 3 \
+  --json --summary
+code-intel workflow-benchmark --workspace void --query VCENTER_CONFIGS --source-first --max-files 1
+```
+
+The report includes query latency, context payload bytes, selected files,
+selected source lines, returned-token estimates, source/test path counts,
+first-result classification, and estimated avoided context. Use it when tuning
+agent workflows because it measures the useful end state: how quickly the agent
+can get enough source context without broad file reads.
+
+### `benchmark-suite-save`, `benchmark-suite-list`, and `benchmark-suite-run`
+
+Save a repeatable benchmark suite so real-world provider and workflow checks can
+be rerun after each indexing or ranking change.
+
+```bash
+code-intel benchmark-suite-save void \
+  --workspace void \
+  --symbol-repo /Users/maraujo/git/custom_connectors \
+  --symbol-query VCENTER_CONFIGS \
+  --symbol-query create_received_asset \
+  --workflow-query VCENTER_CONFIGS \
+  --workflow-query "Hardware Capacity Planner" \
+  --repeat 7 --warmup 2 --limit 5
+code-intel benchmark-suite-list
+code-intel benchmark-suite-run void --provider catalog --provider jcodemunch \
+  --record-history --json --summary
+code-intel benchmark-suite-history void --limit 5
+```
+
+Suite files are JSON under `~/.code-intel/benchmark-suites/` by default. A suite
+can include both a single-repo symbol comparison set for catalog vs jCodemunch
+and a multi-repo workflow set for backend/UI agent context quality. Suite runs
+include a scorecard with average median latency, source-first/test-first counts,
+provider speedup, returned-token totals, and estimated avoided context. History
+records are JSONL under `~/.code-intel/benchmark-runs/` and include deltas after
+the first recorded run.
 
 ### `savings`
 
@@ -234,9 +599,15 @@ Inspect repository and catalog health.
 
 ```bash
 code-intel doctor /path/to/repo
+code-intel doctor /path/to/repo --summary
 ```
 
-Use this when an agent is unsure whether a repo has been scanned.
+Use this when an agent is unsure whether a repo has been scanned. Prefer
+`--summary` for routine freshness checks because it omits dependency examples
+and recent usage rows. The full payload includes catalog freshness and a
+dependency summary, so expected standard-library imports, external package
+imports, and static frontend assets are separated from genuinely unresolved
+local imports.
 
 ## Search And Savings Flow
 
@@ -364,21 +735,51 @@ MCP tools:
 
 | Tool | Purpose |
 | --- | --- |
-| `catalog_repo` | build or refresh the catalog |
+| `catalog_repo` | build or refresh the catalog; accepts `incremental=true` |
+| `workspace_catalog` | build or refresh several repository catalogs in one process |
+| `lookup` | search symbols and source text together |
+| `workspace_lookup` | search symbols, file paths, and source text across explicit repos or a named workspace |
+| `find_references` | find exact source references with bounded snippets |
+| `workspace_references` | find exact source references across explicit repos or a named workspace |
+| `context_pack` | return bounded source snippets for one lookup query |
+| `workspace_context` | return bounded source snippets across explicit repos or a named workspace |
+| `workspace_context_many` | return bounded source snippets for several workspace queries in one call |
+| `workflow_benchmark` | measure lookup plus compact context retrieval latency, payload size, and avoided context |
+| `list_workspaces` | list saved workspace definitions |
 | `find_symbols` | search symbols from the catalog |
+| `search_text` | search indexed source text with bounded snippets |
+| `get_file_outline` | return symbols declared by one cataloged file |
+| `get_file_tree` | return a compact catalog-backed file tree |
+| `repo_outline` | return language, directory, and top-file summaries |
+| `workspace_outline` | return aggregate and per-repo summaries for a named or explicit workspace |
+| `get_file_content` | return bounded source content from one cataloged file |
 | `explain_file` | explain change impact for one file |
 | `related_tests` | return likely test files for one source file |
 | `risk_report` | list highest-risk files |
-| `catalog_health` | report catalog status and counts |
+| `catalog_health` | report catalog status, freshness, and counts; use `summary_only` for compact output |
 | `savings_report` | report usage and estimated savings |
 
 Recommended agent behavior:
 
-1. Call `catalog_health`.
-2. If `catalog_exists` is false, call `catalog_repo`.
-3. Use `find_symbols`, `explain_file`, `related_tests`, and `risk_report`
-   before loading broad file context.
+1. Call `catalog_health` with `summary_only=true` for routine freshness checks.
+2. If `catalog_exists` is false, call `catalog_repo`; for backend/UI workspaces, call `workspace_catalog`.
+3. Use `workspace_lookup` with `workspace_name` for backend/UI workspaces; use
+   `source_first=true` for implementation-first known-symbol lookups; use
+   `workspace_references` or `find_references` when exact usage sites are
+   needed; use `workspace_context` or `context_pack` when source snippets are
+   needed after lookup; use `workspace_context_many` when collecting snippets
+   for several related backend/UI queries; use `lookup`, `find_symbols`, `search_text`,
+   `get_file_tree`, `repo_outline`, `workspace_outline`, `get_file_outline`,
+   `get_file_content`, `explain_file`, `related_tests`, and `risk_report` before
+   loading broad file context.
 4. Use `savings_report` when you want evidence that the tool reduced context.
+5. Use `workflow_benchmark` with `source_first=true` when tuning agent behavior
+   or comparing default lookup against source-first known-symbol workflows.
+
+The MCP server keeps per-thread reusable catalog stores warm for read-heavy
+tools and invalidates the current thread's store after `catalog_repo` or
+`workspace_catalog` refreshes a catalog. This keeps interactive agent calls close
+to the benchmark path without sharing a SQLite connection across threads.
 
 ## Agent Notes
 
@@ -405,12 +806,17 @@ hosted Q&A.
 
 | Day-to-day need | code-intel replacement |
 | --- | --- |
-| Create or refresh repo knowledge | `scan` or MCP `catalog_repo` |
+| Create or refresh repo knowledge | `scan`, `workspace-scan`, MCP `catalog_repo`, or MCP `workspace_catalog` |
 | Check whether repo knowledge exists | `doctor` or MCP `catalog_health` |
+| Search when query type is unclear | `lookup`, `workspace-lookup`, or MCP `workspace_lookup` |
 | Find symbols | `find` or MCP `find_symbols` |
+| Find strings, labels, CSS classes, or config keys | `search-text` or MCP `search_text` |
+| Inspect a file without full source | `outline`, `context-pack`, or MCP `context_pack` |
+| Read exact source context | `content`, `workspace-context`, MCP `workspace_context`, or MCP `workspace_context_many` |
 | Explain impact before edits | `explain` or MCP `explain_file` |
 | Pick likely tests | `tests` or MCP `related_tests` |
 | Find risky files | `risk` or MCP `risk_report` |
+| Compare provider speed and quality | `benchmark`, `workspace-benchmark`, `workflow-benchmark`, or MCP `workflow_benchmark` |
 | Show value after use | `savings` or MCP `savings_report` |
 | Migrate from existing jCodemunch data | explicit `--provider jcodemunch` |
 
@@ -422,32 +828,66 @@ exists.
 
 | Task | Without code-intel | With code-intel |
 | --- | --- | --- |
+| Start from an ambiguous query | try grep, find files, then read | `lookup` ranked hits, then `context-pack` snippets |
 | Find a symbol | grep or scan many files | one symbol lookup with path and line |
+| Find exact usages | grep, filter false positives, then read files | `references` or `workspace-references` bounded snippets |
+| Find a string or UI label | broad grep plus file reads | `search-text` snippets with path and line |
+| Understand repo shape | run `find`/`tree`, then inspect files | `tree`, `repo-outline`, or `workspace-outline` from the catalog |
+| Inspect a large file | read full source | `outline`, `context-pack`, then bounded `content` |
 | Understand change impact | manually trace imports | `explain` or `explain_file` |
 | Pick tests | guess from file names | `tests` or `related_tests` |
 | Find risky files | broad manual inspection | `risk` or `risk_report` |
-| Measure value | anecdotal | `savings` or `savings_report` |
+| Measure value | anecdotal | `benchmark`, `workflow-benchmark`, `savings`, or `savings_report` |
 
 ## Validation Snapshot
 
-Sample local validation on a medium Python repository. Timings are from one
-machine and should be treated as directional, not benchmarks.
+Sample local validation on July 2, 2026 against a real backend+UI workspace.
+Timings are from one machine and should be treated as directional benchmark
+evidence, not universal performance guarantees.
+
+Workspace under test:
+
+```bash
+code-intel workspace-save void \
+  --repo /Users/maraujo/git/custom_connectors \
+  --repo /Users/maraujo/git/vme_bmaas
+```
 
 | Check | Result |
 | --- | --- |
-| Test suite | `19 passed` |
-| Initial scan | 516 files, 8,353 symbols, 3,979 dependencies in 1.49s |
-| Catalog lookup | exact symbol path and line in 0.09s |
-| `git grep` comparison | raw text matches in 0.02s, including call sites |
-| jCodemunch compatibility provider | same symbol found in 0.16s when an existing jCodemunch DB was present |
+| Test suite | `147 passed` |
+| Full workspace catalog | `custom_connectors` + full `vme_bmaas`: 1,239 files, 19,281 symbols, 9,825 dependencies, 502,595 indexed text lines |
+| `custom_connectors` catalog | 437 files, 9,056 symbols, 3,274 dependencies, 176,396 indexed text lines |
+| `vme_bmaas` full repo catalog | 802 files, 10,225 symbols, 6,551 dependencies, 326,199 indexed text lines |
+| `vme_bmaas` language coverage | 600 Python files, 141 JSX files, 59 JavaScript files, 2 CSS files |
+| Initial full BMaaS scan | 802 changed files written in 6.49s: 53.6ms discovery, 111.3ms change detection, 1.89s analysis, 4.43s SQLite write |
+| Incremental no-change workspace scan | 2 repos, 1,239 reused files, 0 changed, 0 writes, 62.9ms total with repo concurrency; `custom_connectors` 39.1ms and `vme_bmaas` 59.6ms catalog timings |
+| Workspace outline | Reports 1,239 files, 591,544 physical source lines, and 19,281 symbols across backend and UI; top files include BMaaS backend modules and UI pages |
+| Source-first workspace context | `workflow-benchmark --workspace void --source-first` returns bounded snippets from the right repo without reading full files |
+| `incoming_hardware` workflow query | 1.624ms median, 5 selected files, 243 selected lines; returns BMaaS API/config/SFTP backend files plus `ui/src/pages/IncomingNewHardwarePage.jsx`; estimated 4,729,392 tokens avoided |
+| `SurfacePanel` workflow query | 0.450ms median, 1 selected UI component file, 20 selected lines; estimated 4,732,127 tokens avoided |
+| `VCENTER_CONFIGS` workflow query | 0.741ms median, 1 selected connector constants file, 80 selected lines; estimated 4,731,632 tokens avoided |
+| `create_received_asset` workflow query | 0.838ms median, 1 selected Sunbird client file, 80 selected lines; estimated 4,731,212 tokens avoided |
+| `SystemHealth` workflow query | 0.482ms median, 1 selected UI page, 7 selected lines; estimated 4,732,367 tokens avoided |
+| MCP workspace context | Direct `workspace_context` helper calls over the saved six-query `void` suite averaged 3.05ms median after reusable catalog stores, reusable file/symbol/line-row caches, and catalog-backed snippet reads, down from 7.95ms before cache wiring |
+| MCP batch context | One `workspace_context_many` batch over the six-query suite measured 9.2ms median vs 13.8ms for six separate helper calls; compact JSON dropped from 9,580 to 9,169 bytes |
+| MCP shared snippets | Auto shared snippets cut related `incoming` batch payloads by 14.1% and related `vcenter` batch payloads by 44.8% |
+| MCP duplicate queries | Case-only `vcenter` variants reuse lookup and serialized payloads at 3.1ms median; six repeated `SurfacePanel` rows measure 1.3ms median |
+| Provider comparison: `custom_connectors` | code-intel catalog has 437 files and 9,056 symbols; local jCodemunch DB has 213 files and 6,552 symbols |
+| `custom_connectors` quality | For `VCENTER_CONFIGS`, code-intel returns the source constants file first in 3.736ms median; jCodemunch returns a test file first in 10.838ms median |
+| `custom_connectors` Sunbird query | For `create_received_asset`, code-intel returns `src/custom_connectors/sunbird/client.py` first in 4.491ms median; jCodemunch returns `tests/sunbird/test_received_asset.py` first in 12.325ms median |
+| Provider comparison: `vme_bmaas` | code-intel catalog has 802 files and 10,225 symbols; local jCodemunch DB has 1 file and 22 symbols, so apparent low latency is not comparable coverage |
+| `vme_bmaas` quality | code-intel resolves `SurfacePanel` to `ui/src/components/shared/SurfacePanel.jsx`; the stale local jCodemunch DB returns `ui/src/pages/SystemHealthPage.jsx` for that query and has 0 hits for `incoming_hardware` |
 | Missing catalog guard | `find` exits with "Run `code-intel scan` first" and creates no partial DB |
 | Risk report | returns direct dependents, transitive dependents, test counts, and risk labels |
-| Savings estimate | one catalog lookup estimated about 2.0M avoided context tokens on the sample repo |
 
-The comparison is intentionally conservative: grep can be faster for a single
+The comparison is intentionally conservative: `grep` can be faster for a single
 text query, but it returns text matches rather than structured symbol records,
-dependency impact, likely tests, risk ranking, and savings telemetry. The value
-for agents is less broad context loading and more targeted next actions.
+dependency impact, likely tests, risk ranking, bounded source snippets, and
+savings telemetry. jCodemunch can be useful when its local database is fresh,
+but these measurements show why provider health and coverage matter: a tiny
+stale index can look fast while missing the backend and returning the wrong UI
+file.
 
 ## Supported Source Types
 
@@ -455,12 +895,37 @@ Current built-in analyzers:
 
 | Language | Extensions | Symbol extraction | Dependency extraction |
 | --- | --- | --- | --- |
-| Python | `.py` | AST-based functions, classes, methods | AST imports and relative imports |
-| JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | conservative regex functions, classes, constants, types | import, export-from, require, dynamic import |
-| TypeScript | `.ts`, `.tsx` | conservative regex functions, classes, constants, types | import, export-from, require, dynamic import |
+| Python | `.py` | AST-based functions, classes, methods | AST imports and relative imports; classifies standard-library and external package imports |
+| JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | conservative regex components, hooks, functions, classes, constants, types | import, export-from, require, dynamic import; classifies external packages and static assets |
+| TypeScript | `.ts`, `.tsx` | conservative regex components, hooks, functions, classes, constants, types | import, export-from, require, dynamic import; classifies external packages and static assets |
+| CSS | `.css` | class selectors and keyframes | none |
 
 The analyzer set is intentionally conservative. Add new languages as focused
 providers instead of making the core scanner guess.
+
+## Public Repository Hygiene
+
+This repository includes the standard files expected for a public developer
+tool:
+
+| Area | File |
+| --- | --- |
+| License | `LICENSE` (MIT) and `pyproject.toml` license metadata |
+| Contribution guide | `CONTRIBUTING.md` |
+| Code of conduct | `CODE_OF_CONDUCT.md` |
+| Security reporting | `SECURITY.md` |
+| Support guidance | `SUPPORT.md` |
+| CI | `.github/workflows/ci.yml` runs Ruff, formatting, and tests on `main`, `dev`, and pull requests |
+| Ownership | `.github/CODEOWNERS` requires review from `@marlonfcaraujo` when branch protection is enabled |
+| Dependency updates | `.github/dependabot.yml` checks Python and GitHub Actions updates weekly |
+| Issue and PR templates | `.github/ISSUE_TEMPLATE/*` and `.github/pull_request_template.md` |
+| Repository settings | `docs/REPOSITORY_SETTINGS.md` documents recommended public repo settings and the `main` branch protection command |
+
+The remote repository must have a `main` branch before GitHub's branch
+protection endpoint can lock it. Once `main` exists, use the command in
+`docs/REPOSITORY_SETTINGS.md` to require pull requests, one CODEOWNERS review,
+the `test` CI job, linear history, resolved conversations, and no force pushes
+or branch deletion.
 
 ## Development
 

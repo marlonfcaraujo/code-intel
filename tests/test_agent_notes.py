@@ -15,6 +15,10 @@ def test_install_agent_notes_creates_claude_and_agents_files(tmp_path: Path) -> 
     assert "self-contained repository-aware navigation" in claude.read_text()
     assert "catalog_repo" in agents.read_text()
     assert "savings_report" in agents.read_text()
+    assert "workflow_benchmark" in agents.read_text()
+    assert "workspace_context_many" in agents.read_text()
+    assert "workflow-benchmark" in agents.read_text()
+    assert "--source-first" in agents.read_text()
     assert "uv run code-intel scan ." in claude.read_text()
 
 

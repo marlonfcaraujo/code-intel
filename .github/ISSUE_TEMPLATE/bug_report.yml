@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible code-intel problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include commands and relevant output.
+      placeholder: |
+        1. Run `code-intel scan ...`
+        2. Run `code-intel lookup ...`
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "0.1.0 or commit SHA"
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "macOS 15, Python 3.12, uv 0.x"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      render: shell

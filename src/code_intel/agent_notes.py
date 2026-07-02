@@ -70,10 +70,32 @@ def build_agent_note_section(command_prefix: str) -> str:
             "## Code Intel",
             "",
             "Use code-intel for self-contained repository-aware navigation before non-trivial code changes.",
-            "Prefer the MCP server tools when configured: `catalog_repo`, `find_symbols`, `explain_file`, "
-            "`related_tests`, `risk_report`, and `savings_report`.",
-            f"CLI fallback: refresh with `{command} scan .`, then use `{command} explain --repo . path/to/file.py` "
-            f"or `{command} find --repo . SymbolName`; check impact with `{command} savings --repo .`.",
+            "Prefer the MCP server tools when configured: `catalog_health`, `catalog_repo`, `workspace_catalog`, "
+            "`list_workspaces`, "
+            "`workspace_lookup`, `workspace_references`, `workspace_context`, `workspace_context_many`, "
+            "`workflow_benchmark`, "
+            "`context_pack`, `lookup`, "
+            "`find_symbols`, `find_references`, `search_text`, `get_file_outline`, `get_file_content`, "
+            "`get_file_tree`, `repo_outline`, `workspace_outline`, `explain_file`, `related_tests`, `risk_report`, "
+            "and `savings_report`.",
+            f"CLI fallback: refresh with `{command} scan . --incremental --skip-unchanged-meta --json`, then use "
+            f"`{command} lookup --repo . query`, `{command} workspace-lookup --workspace name query --source-first`, "
+            f"`{command} lookup --repo . KnownSymbol --source-first`, "
+            f"`{command} references --repo . SymbolName`, "
+            f"`{command} workspace-references --workspace name SymbolName`, "
+            f"`{command} workspace-context --workspace name query --source-first`, "
+            f"`{command} workflow-benchmark --workspace name --query query --source-first --json --summary`, "
+            f"`{command} tree --repo .`, `{command} repo-outline --repo .`, "
+            f"`{command} workspace-outline --workspace name`, "
+            f"`{command} explain --repo . path/to/file.py`, `{command} find --repo . SymbolName`, "
+            f"or `{command} search-text --repo . query`; "
+            f"save repeated backend/UI sets with `{command} workspace-save name --repo backend --repo ui/src` "
+            f"and refresh them with `{command} workspace-scan --workspace name --incremental "
+            "--skip-unchanged-meta --json`; "
+            f"use `{command} outline --repo . path/to/file.py` before reading source; "
+            f"check catalog freshness with `{command} doctor . --summary` "
+            f"and impact with `{command} savings --repo .`.",
+            f"Use `{command} install-refresh-job ...` on macOS when a repo needs scheduled incremental indexing.",
             "The generated catalog is `.code-intel/catalog.sqlite`; do not commit it.",
             NOTE_END,
         ]

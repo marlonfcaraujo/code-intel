@@ -9,6 +9,14 @@ from code_intel.models import TestMatch
 
 TEST_PATH_PARTS = {"test", "tests", "__tests__"}
 TEST_SUFFIXES = (".test.js", ".test.jsx", ".test.ts", ".test.tsx", ".spec.js", ".spec.jsx", ".spec.ts", ".spec.tsx")
+GENERIC_SOURCE_STEMS = {"__init__", "client", "config", "constants", "endpoints", "errors", "models", "types", "utils"}
+PATH_CONTEXT_STOPWORDS = {
+    "__tests__",
+    "src",
+    "test",
+    "tests",
+    "unit",
+}
 
 
 def find_related_tests(repo_root: Path, store: CatalogStore, target_path: str) -> list[TestMatch]:
@@ -21,7 +29,7 @@ def find_related_tests(repo_root: Path, store: CatalogStore, target_path: str) -
         if not _is_test_path(path):
             continue
 
-        if _stem_matches(path, target_stem):
+        if _stem_matches(path, target_stem) and _stem_match_is_relevant(target_path, path, target_stem):
             matches.setdefault(path, set()).add("name matches source file")
 
         dependencies = store.dependencies_for_file(path)
@@ -50,6 +58,22 @@ def _stem_matches(path: str, target_stem: str) -> bool:
         normalized = normalized.removesuffix(suffix)
     normalized = normalized.rsplit(".", 1)[0]
     return target_stem in {normalized, normalized.removeprefix("test_")}
+
+
+def _stem_match_is_relevant(target_path: str, test_path: str, target_stem: str) -> bool:
+    if target_stem not in GENERIC_SOURCE_STEMS:
+        return True
+    return bool(_path_context_tokens(target_path) & _path_context_tokens(test_path))
+
+
+def _path_context_tokens(path: str) -> set[str]:
+    tokens = set(Path(path).with_suffix("").parts)
+    cleaned = {
+        token.removeprefix("test_")
+        for token in tokens
+        if token not in PATH_CONTEXT_STOPWORDS and token not in GENERIC_SOURCE_STEMS
+    }
+    return {token for token in cleaned if token}
 
 
 def _mentions_symbol(repo_root: Path, store: CatalogStore, target_path: str, test_path: str) -> bool:

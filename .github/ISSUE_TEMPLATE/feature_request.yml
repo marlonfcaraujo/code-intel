@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an indexing, lookup, MCP, or workflow improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What task is hard or slow today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should code-intel do differently?
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Benchmark or repo shape
+      description: Include repo size, language mix, or query examples when relevant.

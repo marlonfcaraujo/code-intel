@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from code_intel.models import FileAnalysis
+from code_intel.models import FileAnalysis, TextLine
 
 
 class Analyzer(Protocol):
@@ -37,3 +37,20 @@ def count_lines(source: str) -> int:
 def line_of(source: str, offset: int) -> int:
     """Return a one-based line number for ``offset`` in ``source``."""
     return source[:offset].count("\n") + 1
+
+
+def indexed_source_lines(path: str, source: str) -> list[TextLine]:
+    """Return non-empty source lines for text indexing.
+
+    Args:
+        path: Cataloged source path.
+        source: Source text read by the analyzer.
+
+    Returns:
+        Non-empty source lines with one-based line numbers.
+    """
+    return [
+        TextLine(path=path, line=line_number, content=line)
+        for line_number, line in enumerate(source.splitlines(), start=1)
+        if line.strip()
+    ]

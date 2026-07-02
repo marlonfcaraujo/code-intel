@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 
-from code_intel.analyzers.base import count_lines, relative_path
+from code_intel.analyzers.base import count_lines, indexed_source_lines, relative_path
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
 
 
@@ -32,11 +33,16 @@ class PythonAnalyzer:
         try:
             tree = ast.parse(source, filename=str(path))
         except SyntaxError:
-            return FileAnalysis(source_file=source_file)
+            return FileAnalysis(source_file=source_file, text_lines=indexed_source_lines(rel, source))
 
         symbols = _extract_symbols(tree, source, rel)
         dependencies = _extract_dependencies(tree, path, repo_root, rel, all_paths)
-        return FileAnalysis(source_file=source_file, symbols=symbols, dependencies=dependencies)
+        return FileAnalysis(
+            source_file=source_file,
+            symbols=symbols,
+            dependencies=dependencies,
+            text_lines=indexed_source_lines(rel, source),
+        )
 
 
 def _extract_symbols(tree: ast.Module, source: str, rel: str) -> list[Symbol]:
@@ -60,8 +66,36 @@ def _extract_symbols(tree: ast.Module, source: str, rel: str) -> list[Symbol]:
                             qualified_name=f"{node.name}.{child.name}",
                         )
                     )
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            for name in _constant_names_from_assignment(node):
+                symbols.append(_symbol_from_node(node, rel, "constant", name, lines))
 
     return symbols
+
+
+def _constant_names_from_assignment(node: ast.Assign | ast.AnnAssign) -> list[str]:
+    names: list[str] = []
+    if isinstance(node, ast.AnnAssign):
+        names.extend(_names_from_assignment_target(node.target))
+    else:
+        for target in node.targets:
+            names.extend(_names_from_assignment_target(target))
+    return [name for name in names if _is_public_constant_name(name)]
+
+
+def _names_from_assignment_target(target: ast.expr) -> list[str]:
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        names: list[str] = []
+        for element in target.elts:
+            names.extend(_names_from_assignment_target(element))
+        return names
+    return []
+
+
+def _is_public_constant_name(name: str) -> bool:
+    return not name.startswith("_") and name.upper() == name and any(character.isalpha() for character in name)
 
 
 def _symbol_from_node(
@@ -76,7 +110,11 @@ def _symbol_from_node(
     line = getattr(node, "lineno", 1)
     end_line = getattr(node, "end_lineno", None)
     signature = lines[line - 1].strip() if 0 < line <= len(lines) else ""
-    doc = ast.get_docstring(node) or ""
+    doc = (
+        ast.get_docstring(node) or ""
+        if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef, ast.Module))
+        else ""
+    )
     return Symbol(
         name=name,
         qualified_name=qualified_name or name,
@@ -122,13 +160,34 @@ def _dependency_for_import(
     all_paths: set[str],
 ) -> Dependency:
     target = _resolve_internal(import_name, file_path, repo_root, all_paths)
+    category = "code" if target else _unresolved_category(import_name)
     return Dependency(
         source_path=source_path,
-        target_path=target or import_name.split(".")[0].lstrip("."),
+        target_path=target or _target_for_unresolved_import(import_name),
         import_name=import_name,
         kind="import",
         resolved=target is not None,
+        category=category,
     )
+
+
+def _unresolved_category(import_name: str) -> str:
+    if import_name.startswith("."):
+        return "unresolved"
+    if _import_root(import_name) in sys.stdlib_module_names:
+        return "stdlib"
+    return "external"
+
+
+def _target_for_unresolved_import(import_name: str) -> str:
+    root = _import_root(import_name)
+    if root:
+        return root
+    return import_name
+
+
+def _import_root(import_name: str) -> str:
+    return import_name.lstrip(".").split(".", 1)[0]
 
 
 def _resolve_internal(import_name: str, file_path: Path, repo_root: Path, all_paths: set[str]) -> str | None:

@@ -7,6 +7,7 @@ from code_intel.catalog_store import CatalogStore
 from code_intel.cataloger import build_catalog
 from code_intel.cli import main
 from code_intel.jcodemunch_provider import search_jcodemunch_symbols
+from code_intel.savings import estimate_saved_tokens_for_context_pack, estimate_saved_tokens_for_paths
 from code_intel.symbol_search import search_symbols
 
 
@@ -47,6 +48,7 @@ def test_catalog_store_usage_summary(tmp_path: Path) -> None:
     )
 
     summary = store.usage_summary()
+    compact_summary = store.usage_summary(detailed=False)
 
     assert summary["events"] == 1
     assert summary["estimated_saved_tokens"] == 12000
@@ -54,6 +56,72 @@ def test_catalog_store_usage_summary(tmp_path: Path) -> None:
     assert summary["returned_files"] == 2
     assert summary["by_tool"][0]["tool"] == "find"
     assert summary["recent"][0]["query"] == "Service"
+    assert compact_summary == {
+        "events": 1,
+        "estimated_saved_tokens": 12000,
+        "candidate_files": 50,
+        "returned_files": 2,
+    }
+
+
+def test_reusable_store_caches_usage_table_setup(tmp_path: Path) -> None:
+    store = CatalogStore.for_repo(tmp_path, reuse_connection=True)
+    statements: list[str] = []
+    store.connect().set_trace_callback(statements.append)
+
+    store.record_usage_events(
+        [
+            {
+                "tool": "find",
+                "provider": "catalog",
+                "query": f"Service{index}",
+                "result_count": 2,
+                "candidate_files": 50,
+                "returned_files": 2,
+                "estimated_saved_tokens": 12000,
+            }
+            for index in range(3)
+        ]
+    )
+    store.record_usage_event(
+        tool="find",
+        provider="catalog",
+        query="Service3",
+        result_count=2,
+        candidate_files=50,
+        returned_files=2,
+        estimated_saved_tokens=12000,
+    )
+
+    summary = store.usage_summary(detailed=False)
+
+    assert summary["events"] == 4
+    assert sum(1 for statement in statements if "CREATE TABLE IF NOT EXISTS usage_events" in statement) == 1
+
+
+def test_context_pack_savings_use_snippet_tokens(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    (repo / "src/app/noise.py").write_text("\n".join(f"NOISE_{index} = {index}" for index in range(200)))
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    token_summary = store.file_token_summary(selected_paths={"src/app/service.py"})
+    whole_file_metrics = estimate_saved_tokens_for_paths(store, {"src/app/service.py"}, result_count=1)
+    snippet_metrics = estimate_saved_tokens_for_context_pack(
+        store,
+        {"src/app/service.py"},
+        returned_tokens=5,
+        result_count=1,
+    )
+
+    assert token_summary == {
+        "file_count": 2,
+        "total_tokens": 203 * 8,
+        "selected_tokens": 3 * 8,
+    }
+    assert snippet_metrics["candidate_files"] == whole_file_metrics["candidate_files"]
+    assert snippet_metrics["returned_files"] == whole_file_metrics["returned_files"]
+    assert snippet_metrics["estimated_saved_tokens"] > whole_file_metrics["estimated_saved_tokens"]
 
 
 def test_jcodemunch_provider_searches_matching_database(tmp_path: Path, monkeypatch) -> None:

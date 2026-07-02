@@ -27,6 +27,7 @@ def search_symbols(
     *,
     limit: int = 20,
     provider: ProviderName = "catalog",
+    include_fuzzy: bool = True,
 ) -> SymbolSearchResult:
     """Search symbols through the selected provider."""
     if provider == "jcodemunch":
@@ -43,11 +44,12 @@ def search_symbols(
                 "kind": row["kind"],
                 "path": row["path"],
                 "line": row["line"],
+                "end_line": row["end_line"],
                 "signature": row["signature"],
                 "summary": row["doc"],
                 "provider": "catalog",
             }
-            for row in store.search_symbols(query, limit)
+            for row in store.search_symbols(query, limit, include_fuzzy=include_fuzzy)
         ]
         return SymbolSearchResult(provider="catalog", symbols=rows)
 
