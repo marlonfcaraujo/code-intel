@@ -16,7 +16,7 @@ from code_intel.catalog_store import CatalogStore
 from code_intel.discovery import DiscoveredSourceFile, discover_source_file_entries
 from code_intel.models import CatalogResult, FileAnalysis
 
-CATALOG_ANALYZER_VERSION = "2026-07-02-secret-redaction"
+CATALOG_ANALYZER_VERSION = "2026-07-19-index-safety"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 DEFAULT_ANALYSIS_WORKERS = min(32, max(1, os.cpu_count() or 1))
 PARALLEL_ANALYSIS_MIN_FILES = 300
@@ -111,8 +111,7 @@ def build_catalog(
     )
     analysis_ms = _elapsed_ms(analysis_started)
     write_started = perf_counter()
-    store.reset()
-    store.write_catalog(
+    store.publish_catalog(
         analyses,
         _build_metadata(
             repo_root,

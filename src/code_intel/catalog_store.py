@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
-from collections.abc import Iterable
+import tempfile
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,7 +17,11 @@ from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol, Text
 
 DEFAULT_CATALOG_PATH = ".code-intel/catalog.sqlite"
 SQLITE_PARAMETER_CHUNK_SIZE = 500
+CATALOG_WRITE_LOCK_TIMEOUT_SECONDS = 30.0
+REUSABLE_CONNECTION_OPEN_ATTEMPTS = 3
 type FileSearchRow = tuple[sqlite3.Row, str, str, str, str]
+type DatabaseSignature = tuple[int, int, int, int, int] | None
+type DatabaseIdentity = tuple[int, int] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +65,8 @@ class CatalogStore:
         self._source_line_range_cache: dict[tuple[str, int, int], dict[int, str]] = {}
         self._file_token_total_cache: dict[int, tuple[int, int]] = {}
         self._selected_token_cache: dict[tuple[int, tuple[str, ...]], int] = {}
+        self._database_signature = _database_signature(database_path)
+        self._data_version: int | None = None
 
     @classmethod
     def for_repo(
@@ -88,16 +97,21 @@ class CatalogStore:
         """
         if not self.reuse_connection:
             return self._open_connection()
+        self._refresh_reusable_state()
         if self._connection is None:
-            self._connection = self._open_connection()
+            connection, signature, data_version = self._open_reusable_connection()
+            self._connection = connection
+            self._database_signature = signature
+            self._data_version = data_version
         return self._connection
 
     def close(self) -> None:
         """Close the reusable SQLite connection, when one is open."""
-        if self._connection is None:
-            return
-        self._connection.close()
-        self._connection = None
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
+        self._database_signature = _database_signature(self.database_path)
+        self._data_version = None
         self._clear_schema_cache()
         self._clear_file_cache()
 
@@ -106,6 +120,17 @@ class CatalogStore:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         return connection
+
+    def _open_reusable_connection(self) -> tuple[sqlite3.Connection, DatabaseSignature, int]:
+        for _attempt in range(REUSABLE_CONNECTION_OPEN_ATTEMPTS):
+            identity_before_open = _database_identity(self.database_path)
+            connection = self._open_connection()
+            signature_after_open = _database_signature(self.database_path)
+            identity_after_open = _identity_from_signature(signature_after_open)
+            if identity_before_open == identity_after_open:
+                return connection, signature_after_open, _sqlite_data_version(connection)
+            connection.close()
+        raise RuntimeError(f"Catalog changed repeatedly while opening {self.database_path}")
 
     def reset(self) -> None:
         """Drop and recreate all catalog tables."""
@@ -181,6 +206,76 @@ class CatalogStore:
             self._create_usage_tables(connection)
         self._clear_schema_cache()
         self._clear_file_cache()
+        self._mark_reusable_state_current()
+
+    def publish_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:
+        """Build, validate, and atomically publish a complete catalog.
+
+        The replacement catalog is constructed beside the live database so a
+        failed analysis write or validation leaves the last usable catalog
+        untouched. Catalog writers are serialized during the final handoff, and
+        current usage history is copied immediately before replacement.
+
+        Args:
+            analyses: Complete source analyses for the replacement catalog.
+            metadata: Metadata key/value pairs for the replacement catalog.
+
+        Raises:
+            RuntimeError: If the temporary catalog fails count or SQLite
+                integrity validation.
+            OSError: If the temporary database cannot be created or atomically
+                moved into place.
+            sqlite3.Error: If SQLite cannot write the catalog or copy usage
+                history during publication.
+        """
+        analysis_list = list(analyses)
+        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.database_path.name}.",
+            suffix=".tmp",
+            dir=self.database_path.parent,
+        )
+        os.close(descriptor)
+        temporary_path = Path(temporary_name)
+        temporary_store = CatalogStore(temporary_path)
+        published = False
+        try:
+            temporary_store.reset()
+            temporary_store.write_catalog(analysis_list, metadata)
+            expected_counts = CatalogCounts(
+                file_count=len(analysis_list),
+                symbol_count=sum(len(analysis.symbols) for analysis in analysis_list),
+                dependency_count=sum(len(analysis.dependencies) for analysis in analysis_list),
+                text_line_count=sum(len(analysis.text_lines) for analysis in analysis_list),
+            )
+            actual_counts = temporary_store.catalog_counts()
+            if actual_counts != expected_counts:
+                raise RuntimeError(
+                    f"Temporary catalog count validation failed: expected {expected_counts}, got {actual_counts}"
+                )
+
+            validation_connection = sqlite3.connect(temporary_path)
+            try:
+                integrity_row = validation_connection.execute("PRAGMA integrity_check").fetchone()
+            finally:
+                validation_connection.close()
+            if integrity_row is None or str(integrity_row[0]).casefold() != "ok":
+                detail = "missing result" if integrity_row is None else str(integrity_row[0])
+                raise RuntimeError(f"Temporary catalog integrity validation failed: {detail}")
+
+            temporary_store.close()
+            with _catalog_write_lock(self.database_path):
+                _copy_usage_events(self.database_path, temporary_path)
+                self.close()
+                os.replace(temporary_path, self.database_path)
+                published = True
+                self._database_signature = _database_signature(self.database_path)
+                self._clear_schema_cache()
+                self._clear_file_cache()
+        finally:
+            temporary_store.close()
+            if not published:
+                temporary_path.unlink(missing_ok=True)
 
     def write_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:
         """Persist a full catalog."""
@@ -203,6 +298,7 @@ class CatalogStore:
                     text_index_paths.add(analysis.source_file.path)
             self._insert_text_index_paths(connection, text_index_paths)
             self._create_catalog_indexes(connection)
+        self._mark_reusable_state_current()
 
     def write_incremental_update(
         self,
@@ -221,21 +317,23 @@ class CatalogStore:
         analysis_list = list(analyses)
         replaced_paths = {analysis.source_file.path for analysis in analysis_list}
         paths_to_delete = replaced_paths | set(removed_paths)
-        with self.connect() as connection:
-            self._configure_write_connection(connection)
-            self._create_usage_tables(connection)
-            self._clear_schema_cache()
+        with _catalog_write_lock(self.database_path):
+            with self.connect() as connection:
+                self._configure_write_connection(connection)
+                self._create_usage_tables(connection)
+                self._clear_schema_cache()
+                self._clear_file_cache()
+                self._delete_file_rows(connection, paths_to_delete)
+                for analysis in analysis_list:
+                    self._insert_file(connection, analysis.source_file)
+                    self._insert_symbols(connection, analysis.symbols)
+                    self._insert_dependencies(connection, analysis.dependencies)
+                    self._insert_text_lines(connection, analysis.text_lines)
+                self._insert_text_index_paths(connection, replaced_paths)
+                self._create_catalog_indexes(connection)
+                self._upsert_meta(connection, metadata)
             self._clear_file_cache()
-            self._delete_file_rows(connection, paths_to_delete)
-            for analysis in analysis_list:
-                self._insert_file(connection, analysis.source_file)
-                self._insert_symbols(connection, analysis.symbols)
-                self._insert_dependencies(connection, analysis.dependencies)
-                self._insert_text_lines(connection, analysis.text_lines)
-            self._insert_text_index_paths(connection, replaced_paths)
-            self._create_catalog_indexes(connection)
-            self._upsert_meta(connection, metadata)
-        self._clear_file_cache()
+            self._mark_reusable_state_current()
 
     def update_meta(self, metadata: dict[str, str]) -> None:
         """Update catalog metadata without rewriting source analysis tables.
@@ -243,8 +341,10 @@ class CatalogStore:
         Args:
             metadata: Metadata key/value pairs to upsert.
         """
-        with self.connect() as connection:
-            self._upsert_meta(connection, metadata)
+        with _catalog_write_lock(self.database_path):
+            with self.connect() as connection:
+                self._upsert_meta(connection, metadata)
+            self._mark_reusable_state_current()
 
     def get_meta(self) -> dict[str, str]:
         """Return catalog metadata."""
@@ -258,6 +358,7 @@ class CatalogStore:
 
     def has_catalog(self) -> bool:
         """Return true when catalog tables are present."""
+        self._refresh_reusable_state()
         if self.reuse_connection and self._has_catalog_cache is not None:
             return self._has_catalog_cache
         if not self.database_path.exists():
@@ -485,7 +586,10 @@ class CatalogStore:
         bounded_limit = max(1, min(limit, 500))
         clauses: list[str] = []
         params: list[str] = []
-        for variant in variants:
+        rank_clauses: list[str] = []
+        rank_params: list[str] = []
+        for index, variant in enumerate(variants):
+            prefix = f"{variant}%"
             clauses.append(
                 """
                 (
@@ -496,21 +600,34 @@ class CatalogStore:
                 )
                 """
             )
-            params.extend([variant, variant, f"{variant}%", f"{variant}%"])
+            params.extend([variant, variant, prefix, prefix])
+            rank_clauses.extend(
+                [
+                    f"WHEN name = ? COLLATE NOCASE THEN {index * 4}",
+                    f"WHEN qualified_name = ? COLLATE NOCASE THEN {index * 4 + 1}",
+                    f"WHEN name LIKE ? COLLATE NOCASE THEN {index * 4 + 2}",
+                    f"WHEN qualified_name LIKE ? COLLATE NOCASE THEN {index * 4 + 3}",
+                ]
+            )
+            rank_params.extend([variant, variant, prefix, prefix])
 
-        candidate_limit = min(500, max(bounded_limit * len(variants) * 5, bounded_limit))
         with self.connect() as connection:
-            rows = connection.execute(
+            return connection.execute(
                 f"""
                 SELECT *
                 FROM symbols
                 WHERE {" OR ".join(clauses)}
-                ORDER BY path, line
+                ORDER BY
+                    CASE
+                        {" ".join(rank_clauses)}
+                        ELSE {len(variants) * 4}
+                    END,
+                    path,
+                    line
                 LIMIT ?
                 """,
-                (*params, candidate_limit),
+                (*params, *rank_params, bounded_limit),
             ).fetchall()
-        return sorted(rows, key=lambda row: _symbol_prefix_score(row, variants))[:bounded_limit]
 
     def list_searchable_symbols(self, limit: int = 20) -> list[sqlite3.Row]:
         """Return representative public symbols for generated benchmark queries.
@@ -668,6 +785,7 @@ class CatalogStore:
         return [row for _score, row in sorted(scored_rows, key=lambda item: item[0])[:limit]]
 
     def _cached_file_rows(self) -> list[FileSearchRow]:
+        self._refresh_reusable_state()
         if self._file_rows_cache is None:
             with self.connect() as connection:
                 rows = connection.execute("SELECT * FROM files ORDER BY path").fetchall()
@@ -725,6 +843,7 @@ class CatalogStore:
 
     def get_file(self, path: str) -> sqlite3.Row | None:
         """Return one indexed file row."""
+        self._refresh_reusable_state()
         if self.reuse_connection and path in self._file_row_by_path_cache:
             return self._file_row_by_path_cache[path]
         with self.connect() as connection:
@@ -746,6 +865,7 @@ class CatalogStore:
             whitespace-only lines may be absent because the text index stores
             non-empty source lines.
         """
+        self._refresh_reusable_state()
         bounded_start = max(1, start_line)
         bounded_end = max(bounded_start, end_line)
         cache_key = (path, bounded_start, bounded_end)
@@ -788,6 +908,7 @@ class CatalogStore:
             Summary with ``file_count``, ``total_tokens``, and
             ``selected_tokens``.
         """
+        self._refresh_reusable_state()
         selected = selected_paths or set()
         multiplier = max(1, tokens_per_line)
         selected_key = tuple(sorted(selected))
@@ -999,6 +1120,7 @@ class CatalogStore:
 
     def symbols_for_file(self, path: str) -> list[sqlite3.Row]:
         """Return symbols declared by ``path``."""
+        self._refresh_reusable_state()
         cached = self._symbols_by_file_cache.get(path) if self.reuse_connection else None
         if cached is not None:
             return list(cached)
@@ -1110,31 +1232,33 @@ class CatalogStore:
         if not events:
             return
         created_at = datetime.now(UTC).isoformat(timespec="seconds")
-        with self.connect() as connection:
-            self._create_usage_tables(connection)
-            connection.executemany(
-                """
-                INSERT INTO usage_events(
-                    created_at, tool, provider, query, target_path, result_count,
-                    candidate_files, returned_files, estimated_saved_tokens
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        created_at,
-                        str(event.get("tool", "")),
-                        str(event.get("provider", "")),
-                        str(event.get("query", "")),
-                        str(event.get("target_path", "")),
-                        int(event.get("result_count", 0)),
-                        int(event.get("candidate_files", 0)),
-                        int(event.get("returned_files", 0)),
-                        int(event.get("estimated_saved_tokens", 0)),
+        with _catalog_write_lock(self.database_path):
+            with self.connect() as connection:
+                self._create_usage_tables(connection)
+                connection.executemany(
+                    """
+                    INSERT INTO usage_events(
+                        created_at, tool, provider, query, target_path, result_count,
+                        candidate_files, returned_files, estimated_saved_tokens
                     )
-                    for event in events
-                ],
-            )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        (
+                            created_at,
+                            str(event.get("tool", "")),
+                            str(event.get("provider", "")),
+                            str(event.get("query", "")),
+                            str(event.get("target_path", "")),
+                            int(event.get("result_count", 0)),
+                            int(event.get("candidate_files", 0)),
+                            int(event.get("returned_files", 0)),
+                            int(event.get("estimated_saved_tokens", 0)),
+                        )
+                        for event in events
+                    ],
+                )
+            self._mark_reusable_state_current()
 
     def usage_summary(self, *, detailed: bool = True) -> dict[str, Any]:
         """Return aggregate code-intel usage and estimated savings.
@@ -1353,6 +1477,37 @@ class CatalogStore:
         connection.execute("PRAGMA synchronous = OFF")
         connection.execute("PRAGMA temp_store = MEMORY")
 
+    def _refresh_reusable_state(self) -> None:
+        if not self.reuse_connection:
+            return
+        current_signature = _database_signature(self.database_path)
+        if current_signature != self._database_signature:
+            if self._connection is not None:
+                self._connection.close()
+                self._connection = None
+            self._database_signature = current_signature
+            self._data_version = None
+            self._clear_schema_cache()
+            self._clear_file_cache()
+            return
+        if self._connection is None:
+            return
+
+        current_data_version = _sqlite_data_version(self._connection)
+        if self._data_version is None:
+            self._data_version = current_data_version
+            return
+        if current_data_version != self._data_version:
+            self._data_version = current_data_version
+            self._clear_schema_cache()
+            self._clear_file_cache()
+
+    def _mark_reusable_state_current(self) -> None:
+        if not self.reuse_connection:
+            return
+        self._database_signature = _database_signature(self.database_path)
+        self._data_version = _sqlite_data_version(self._connection) if self._connection is not None else None
+
     def _clear_schema_cache(self) -> None:
         self._has_catalog_cache = None
         self._table_exists_cache.clear()
@@ -1391,6 +1546,100 @@ class CatalogStore:
         return exists
 
 
+def _database_signature(database_path: Path) -> DatabaseSignature:
+    try:
+        stat = database_path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+
+def _database_identity(database_path: Path) -> DatabaseIdentity:
+    try:
+        stat = database_path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_dev, stat.st_ino)
+
+
+def _identity_from_signature(signature: DatabaseSignature) -> DatabaseIdentity:
+    if signature is None:
+        return None
+    return (signature[0], signature[1])
+
+
+def _sqlite_data_version(connection: sqlite3.Connection) -> int:
+    row = connection.execute("PRAGMA data_version").fetchone()
+    return int(row[0]) if row is not None else 0
+
+
+@contextmanager
+def _catalog_write_lock(database_path: Path) -> Iterator[None]:
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = database_path.with_name(f".{database_path.name}.write-lock.sqlite")
+    timeout_ms = int(CATALOG_WRITE_LOCK_TIMEOUT_SECONDS * 1000)
+    connection = sqlite3.connect(
+        lock_path,
+        timeout=CATALOG_WRITE_LOCK_TIMEOUT_SECONDS,
+        isolation_level=None,
+    )
+    try:
+        connection.execute(f"PRAGMA busy_timeout = {timeout_ms}")
+        connection.execute("BEGIN EXCLUSIVE")
+        try:
+            yield
+        except BaseException:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
+    finally:
+        connection.close()
+
+
+def _copy_usage_events(source_path: Path, destination_path: Path) -> None:
+    if not source_path.exists() or source_path == destination_path:
+        return
+    connection = sqlite3.connect(destination_path)
+    try:
+        connection.execute("ATTACH DATABASE ? AS live_catalog", (str(source_path),))
+        try:
+            usage_table = connection.execute(
+                """
+                SELECT 1
+                FROM live_catalog.sqlite_master
+                WHERE type = 'table' AND name = 'usage_events'
+                """
+            ).fetchone()
+            if usage_table is None:
+                return
+            connection.execute(
+                """
+                INSERT INTO main.usage_events(
+                    id, created_at, tool, provider, query, target_path,
+                    result_count, candidate_files, returned_files,
+                    estimated_saved_tokens
+                )
+                SELECT
+                    id, created_at, tool, provider, query, target_path,
+                    result_count, candidate_files, returned_files,
+                    estimated_saved_tokens
+                FROM live_catalog.usage_events
+                ORDER BY id
+                """
+            )
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+        finally:
+            if connection.in_transaction:
+                connection.rollback()
+            connection.execute("DETACH DATABASE live_catalog")
+    finally:
+        connection.close()
+
+
 def _example_rows(
     connection: sqlite3.Connection,
     category_expr: str,
@@ -1427,22 +1676,6 @@ def _normalized_query_variants(queries: list[str]) -> list[str]:
 def _table_count(connection: sqlite3.Connection, table_name: str) -> int:
     row = connection.execute(f"SELECT COUNT(*) AS count FROM {table_name}").fetchone()
     return int(row["count"])
-
-
-def _symbol_prefix_score(row: sqlite3.Row, variants: list[str]) -> tuple[int, int, str, int]:
-    name = str(row["name"]).casefold()
-    qualified_name = str(row["qualified_name"]).casefold()
-    for index, variant in enumerate(variants):
-        normalized = variant.casefold()
-        if name == normalized:
-            return (index, 0, str(row["path"]), int(row["line"]))
-        if qualified_name == normalized:
-            return (index, 1, str(row["path"]), int(row["line"]))
-        if name.startswith(normalized):
-            return (index, 2, str(row["path"]), int(row["line"]))
-        if qualified_name.startswith(normalized):
-            return (index, 3, str(row["path"]), int(row["line"]))
-    return (len(variants), 9, str(row["path"]), int(row["line"]))
 
 
 def _file_variant_score(row: sqlite3.Row, variants: list[str]) -> tuple[int, int, int, str]:

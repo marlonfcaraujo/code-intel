@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from code_intel.catalog_store import CatalogStore
+from code_intel.cataloger import build_catalog
 from code_intel.secret_filter import REDACTED_SECRET, is_secret_path, redact_secret_line, redact_source_text
 
 
@@ -39,3 +43,28 @@ def test_redact_source_text_preserves_private_key_block_line_count() -> None:
     redacted = redact_source_text(source)
 
     assert redacted.splitlines() == [REDACTED_SECRET, REDACTED_SECRET, REDACTED_SECRET]
+
+
+def test_catalog_text_index_redacts_private_key_block_body(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    private_key_body = "abc123abc123abc123abc123abc123abc123abc123"
+    (repo / "settings.py").write_text(
+        "\n".join(
+            [
+                "PRIVATE_KEY = '''-----BEGIN PRIVATE KEY-----",
+                private_key_body,
+                "-----END PRIVATE KEY-----'''",
+            ]
+        )
+    )
+
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    assert store.search_text(private_key_body, context_lines=0) == []
+    assert store.source_line_range("settings.py", 1, 3) == {
+        1: REDACTED_SECRET,
+        2: REDACTED_SECRET,
+        3: REDACTED_SECRET,
+    }
