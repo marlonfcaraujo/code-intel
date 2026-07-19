@@ -34,6 +34,19 @@ def test_cli_find_requires_scan_for_catalog(tmp_path: Path, capsys) -> None:
     assert not (repo / ".code-intel/catalog.sqlite").exists()
 
 
+def test_cli_find_uses_env_default_provider(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = _make_repo(tmp_path)
+    _make_jcodemunch_database(tmp_path, repo)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("CODE_INTEL_DEFAULT_SYMBOL_PROVIDER", "jcodemunch")
+
+    assert main(["find", "--repo", str(repo), "Service"]) == 0
+
+    captured = capsys.readouterr()
+    assert "src/app/service.py" in captured.out
+    assert "class Service" in captured.out
+
+
 def test_catalog_store_usage_summary(tmp_path: Path) -> None:
     store = CatalogStore.for_repo(tmp_path)
 

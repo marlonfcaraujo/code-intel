@@ -298,6 +298,14 @@ code-intel find --repo /path/to/repo SymbolName --provider jcodemunch
 The `jcodemunch` provider only reads an existing local jCodemunch SQLite
 database when explicitly requested. It is not required for normal operation.
 
+You can switch the default symbol provider at runtime without changing commands:
+
+```bash
+export CODE_INTEL_DEFAULT_SYMBOL_PROVIDER=jcodemunch
+```
+
+When unset, the default remains `catalog`.
+
 ### `lookup`
 
 Search symbols, file paths, and source text together when you do not know
@@ -528,6 +536,12 @@ code-intel catalog workflow directly. Use `--summary` with `--json` when agents
 only need timings, result counts, saved-token estimates, top paths, quality
 signals, and overlap scores.
 
+Benchmark provider order is configurable with:
+
+```bash
+export CODE_INTEL_BENCHMARK_PROVIDERS=catalog,jcodemunch
+```
+
 ### `workspace-benchmark`
 
 Measure unified lookup across several warm catalogs, including backend and UI
@@ -586,6 +600,7 @@ code-intel benchmark-suite-save backend-ui \
 code-intel benchmark-suite-list
 code-intel benchmark-suite-run backend-ui --provider catalog --provider jcodemunch \
   --record-history --json --summary
+code-intel benchmark-suite-run backend-ui --json --summary
 code-intel benchmark-suite-history backend-ui --limit 5
 ```
 
@@ -857,53 +872,24 @@ exists.
 
 ## Validation Snapshot
 
-Sample local validation on July 2, 2026 against a real backend+UI workspace.
-Timings are from one machine and should be treated as directional benchmark
-evidence, not universal performance guarantees.
-
-Workspace under test:
-
-```bash
-code-intel workspace-save backend-ui \
-  --repo /path/to/connector-service \
-  --repo /path/to/backend-ui-app
-```
+Latest local validation on July 19, 2026 against this repository.
+Timings are directional; run again on your hardware for local baselines.
 
 | Check | Result |
 | --- | --- |
-| Test suite | `154 passed` |
-| Full workspace catalog | `connector-service` + full `backend-ui-app`: 1,239 files, 19,281 symbols, 9,825 dependencies, 502,595 indexed text lines |
-| `connector-service` catalog | 437 files, 9,056 symbols, 3,274 dependencies, 176,396 indexed text lines |
-| `backend-ui-app` full repo catalog | 802 files, 10,225 symbols, 6,551 dependencies, 326,199 indexed text lines |
-| `backend-ui-app` language coverage | 600 Python files, 141 JSX files, 59 JavaScript files, 2 CSS files |
-| Initial full backend/UI app scan | 802 changed files written in 6.49s: 53.6ms discovery, 111.3ms change detection, 1.89s analysis, 4.43s SQLite write |
-| Incremental no-change workspace scan | 2 repos, 1,239 reused files, 0 changed, 0 writes, 62.9ms total with repo concurrency; `connector-service` 39.1ms and `backend-ui-app` 59.6ms catalog timings |
-| Workspace outline | Reports 1,239 files, 591,544 physical source lines, and 19,281 symbols across backend and UI; top files include backend modules and UI pages |
-| Source-first workspace context | `workflow-benchmark --workspace backend-ui --source-first` returns bounded snippets from the right repo without reading full files |
-| `backend_route_query` workflow query | 1.624ms median, 5 selected files, 243 selected lines; returns API/config/storage backend files plus the related UI page; estimated 4,729,392 tokens avoided |
-| `PrimaryPanel` workflow query | 0.450ms median, 1 selected UI component file, 20 selected lines; estimated 4,732,127 tokens avoided |
-| `SERVICE_CONFIGS` workflow query | 0.741ms median, 1 selected connector constants file, 80 selected lines; estimated 4,731,632 tokens avoided |
-| `create_record` workflow query | 0.838ms median, 1 selected connector client file, 80 selected lines; estimated 4,731,212 tokens avoided |
-| `StatusPage` workflow query | 0.482ms median, 1 selected UI page, 7 selected lines; estimated 4,732,367 tokens avoided |
-| MCP workspace context | Direct `workspace_context` helper calls over the saved six-query `backend-ui` suite averaged 3.05ms median after reusable catalog stores, reusable file/symbol/line-row caches, and catalog-backed snippet reads, down from 7.95ms before cache wiring |
-| MCP batch context | One `workspace_context_many` batch over the six-query suite measured 9.2ms median vs 13.8ms for six separate helper calls; compact JSON dropped from 9,580 to 9,169 bytes |
-| MCP shared snippets | Auto shared snippets cut related route batch payloads by 14.1% and related service-config batch payloads by 44.8% |
-| MCP duplicate queries | Case-only service-config variants reuse lookup and serialized payloads at 3.1ms median; six repeated `PrimaryPanel` rows measure 1.3ms median |
-| Provider comparison: `connector-service` | code-intel catalog has 437 files and 9,056 symbols; local jCodemunch DB has 213 files and 6,552 symbols |
-| `connector-service` quality | For `SERVICE_CONFIGS`, code-intel returns the source constants file first in 3.736ms median; jCodemunch returns a test file first in 10.838ms median |
-| `connector-service` method query | For `create_record`, code-intel returns the source client module first in 4.491ms median; jCodemunch returns a test module first in 12.325ms median |
-| Provider comparison: `backend-ui-app` | code-intel catalog has 802 files and 10,225 symbols; local jCodemunch DB has 1 file and 22 symbols, so apparent low latency is not comparable coverage |
-| `backend-ui-app` quality | code-intel resolves `PrimaryPanel` to the shared UI component; the stale local jCodemunch DB returns an unrelated UI page for that query and has 0 hits for the backend route query |
-| Missing catalog guard | `find` exits with "Run `code-intel scan` first" and creates no partial DB |
-| Risk report | returns direct dependents, transitive dependents, test counts, and risk labels |
+| Full test suite | `158 passed` (`uv run pytest`) |
+| Benchmark tests | `18 passed` (`tests/test_benchmark.py`, `tests/test_benchmark_suite.py`) |
+| Catalog scan (`code-intel scan --json .`) | `49 files`, `810 symbols`, `355 dependencies`, `15,320 indexed text lines`; first full scan took `325.9ms` total (`discovery` 14.3ms, `change_detection` 6.8ms, `analysis` 159.1ms, `write` 145.6ms) |
+| Benchmark command | `code-intel benchmark --repo . --query SymbolSearchResult --query ProviderName --query run_benchmark --provider catalog --provider jcodemunch --mode symbol --repeat 3 --warmup 1 --limit 20 --json` |
+| Provider health | `catalog` available; `jcodemunch` unavailable (no local `.code-index` DB under `HOME`) |
+| `SymbolSearchResult` query | catalog median `0.452ms`, 1 result; jcodemunch median `7.680ms`, 0 results |
+| `ProviderName` query | catalog median `0.365ms`, 3 results; jcodemunch median `7.186ms`, 0 results |
+| `run_benchmark` query | catalog median `0.410ms`, 6 results; jcodemunch median `5.884ms`, 0 results |
+| Catalog guard | `find` reports `Run code-intel scan first` when no catalog is present |
 
-The comparison is intentionally conservative: `grep` can be faster for a single
-text query, but it returns text matches rather than structured symbol records,
-dependency impact, likely tests, risk ranking, bounded source snippets, and
-savings telemetry. jCodemunch can be useful when its local database is fresh,
-but these measurements show why provider health and coverage matter: a tiny
-stale index can look fast while missing the backend and returning the wrong UI
-file.
+These numbers are expected to vary by repository shape and warm cache state. The key
+result is the same: catalog-first lookup is functional and fast, with jCodemunch used only
+as an explicit migration/comparison fallback when a local DB exists.
 
 ## Supported Source Types
 
@@ -931,17 +917,16 @@ tool:
 | Code of conduct | `CODE_OF_CONDUCT.md` |
 | Security reporting | `SECURITY.md` |
 | Support guidance | `SUPPORT.md` |
-| CI | `.github/workflows/ci.yml` runs Ruff, formatting, and tests on `main`, `dev`, and pull requests |
+| CI | `.github/workflows/ci.yml` runs Ruff, formatting, and tests on `dev` and pull requests |
 | Ownership | `.github/CODEOWNERS` requires review from `@marlonfcaraujo` when branch protection is enabled |
 | Dependency updates | `.github/dependabot.yml` checks Python and GitHub Actions updates weekly |
 | Issue and PR templates | `.github/ISSUE_TEMPLATE/*` and `.github/pull_request_template.md` |
 | Repository settings | `docs/REPOSITORY_SETTINGS.md` documents recommended public repo settings and the `main` branch protection command |
 
-The remote repository must have a `main` branch before GitHub's branch
-protection endpoint can lock it. Once `main` exists, use the command in
-`docs/REPOSITORY_SETTINGS.md` to require pull requests, one CODEOWNERS review,
-the `test` CI job, linear history, resolved conversations, and no force pushes
-or branch deletion.
+The default branch in this repo is `dev`. If `main` is created later, use the
+command in `docs/REPOSITORY_SETTINGS.md` to enable branch protection for pull
+requests, one CODEOWNERS review, the `test` CI job, linear history, resolved
+conversations, and no force pushes or branch deletion.
 
 ## Development
 

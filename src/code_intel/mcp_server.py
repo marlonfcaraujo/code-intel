@@ -23,6 +23,7 @@ from code_intel.context_pack import (
 )
 from code_intel.health import assess_catalog_health
 from code_intel.lookup import lookup, lookup_selected_paths, lookup_to_dict
+from code_intel.provider_config import resolve_default_symbol_provider
 from code_intel.references import (
     find_references,
     reference_result_to_dict,
@@ -115,11 +116,12 @@ def find_symbols_tool(
     query: str,
     repo_path: str = ".",
     limit: int = 20,
-    provider: ProviderName = "catalog",
+    provider: ProviderName | None = None,
 ) -> dict[str, Any]:
     """Search symbols in a repository through the selected provider."""
     repo_root = Path(repo_path).resolve()
     store = _cached_catalog_store(repo_root)
+    provider = resolve_default_symbol_provider() if provider is None else provider
     if provider == "catalog":
         store = _require_catalog(repo_root)
     bounded_limit = max(1, min(limit, 100))
