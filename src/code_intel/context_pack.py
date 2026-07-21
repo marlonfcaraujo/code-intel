@@ -9,6 +9,7 @@ from typing import Any
 from code_intel.catalog_store import CatalogStore
 from code_intel.lookup import lookup
 from code_intel.savings import estimate_saved_tokens_for_context_pack
+from code_intel.secret_filter import redact_source_text
 from code_intel.workspace import workspace_lookup
 
 DEFAULT_CONTEXT_PACK_LIMIT = 10
@@ -556,7 +557,7 @@ def _snippets_for_file(
     if use_catalog_lines:
         line_count = catalog_line_count
     else:
-        lines = source_path.read_text(errors="replace").splitlines()
+        lines = redact_source_text(source_path.read_text(errors="replace")).splitlines()
         line_count = len(lines)
     if line_count == 0:
         return []

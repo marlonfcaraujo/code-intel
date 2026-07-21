@@ -10,6 +10,7 @@ from time import perf_counter
 from typing import Literal
 
 from code_intel.catalog_store import CatalogStore
+from code_intel.provider_config import DEFAULT_BENCHMARK_PROVIDERS, ProviderName
 from code_intel.context_pack import (
     ContextPack,
     build_context_pack,
@@ -23,13 +24,12 @@ from code_intel.savings import (
     selected_paths_from_rows,
     selected_paths_from_text_matches,
 )
-from code_intel.symbol_search import ProviderName, search_symbols
+from code_intel.symbol_search import search_symbols
 from code_intel.workspace import workspace_lookup, workspace_lookup_to_dict, workspace_selected_paths_by_repo
 
 DEFAULT_BENCHMARK_LIMIT = 20
 DEFAULT_BENCHMARK_REPEAT = 5
 DEFAULT_BENCHMARK_WARMUP = 1
-DEFAULT_BENCHMARK_PROVIDERS: tuple[ProviderName, ...] = ("catalog", "jcodemunch")
 JCODEMUNCH_HEALTH_KEYS = (
     "database_path",
     "available",

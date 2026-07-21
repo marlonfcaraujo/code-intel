@@ -40,6 +40,22 @@ def test_get_file_content_returns_bounded_source(tmp_path: Path) -> None:
     assert content["content"] == "    def run(self) -> str:\n        return 'ok'"
 
 
+def test_get_file_content_redacts_secret_values(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    source = repo / "settings.py"
+    source.write_text(
+        'API_TOKEN = "sk-1234567890abcdefghijklmnopqrstuvwxyz"\n\ndef token_name() -> str:\n    return API_TOKEN\n'
+    )
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    content = get_file_content(repo, store, "settings.py")
+
+    assert "sk-1234567890" not in str(content["content"])
+    assert "[REDACTED_SECRET]" in str(content["content"])
+
+
 def test_get_file_tree_returns_catalog_structure(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     build_catalog(repo)

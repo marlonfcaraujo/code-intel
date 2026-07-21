@@ -8,6 +8,7 @@ from pathlib import Path
 
 from code_intel.analyzers.base import count_lines, indexed_source_lines, relative_path
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
+from code_intel.secret_filter import redact_secret_line
 
 
 class PythonAnalyzer:
@@ -109,7 +110,7 @@ def _symbol_from_node(
 ) -> Symbol:
     line = getattr(node, "lineno", 1)
     end_line = getattr(node, "end_lineno", None)
-    signature = lines[line - 1].strip() if 0 < line <= len(lines) else ""
+    signature = redact_secret_line(lines[line - 1].strip()) if 0 < line <= len(lines) else ""
     doc = (
         ast.get_docstring(node) or ""
         if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef, ast.Module))
@@ -123,7 +124,7 @@ def _symbol_from_node(
         line=line,
         end_line=end_line,
         signature=signature,
-        doc=doc.splitlines()[0] if doc else "",
+        doc=redact_secret_line(doc.splitlines()[0]) if doc else "",
         exported=not name.startswith("_"),
     )
 

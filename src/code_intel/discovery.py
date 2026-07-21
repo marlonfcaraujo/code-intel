@@ -8,6 +8,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from code_intel.secret_filter import is_secret_path
+
 SKIP_DIR_NAMES = {
     ".code-intel",
     ".git",
@@ -149,7 +151,7 @@ def _source_entry_from_path(
     supported_extensions: frozenset[str],
 ) -> DiscoveredSourceFile | None:
     rel = path.relative_to(repo_root)
-    if path.suffix not in supported_extensions or _has_skipped_part(rel):
+    if path.suffix not in supported_extensions or _has_skipped_part(rel) or is_secret_path(rel):
         return None
     try:
         file_stat = path.stat()

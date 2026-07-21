@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Protocol
 
 from code_intel.models import FileAnalysis, TextLine
+from code_intel.secret_filter import redact_source_text
 
 
 class Analyzer(Protocol):
@@ -49,8 +50,9 @@ def indexed_source_lines(path: str, source: str) -> list[TextLine]:
     Returns:
         Non-empty source lines with one-based line numbers.
     """
+    redacted_source = redact_source_text(source)
     return [
         TextLine(path=path, line=line_number, content=line)
-        for line_number, line in enumerate(source.splitlines(), start=1)
+        for line_number, line in enumerate(redacted_source.splitlines(), start=1)
         if line.strip()
     ]

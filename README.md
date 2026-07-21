@@ -109,7 +109,7 @@ Catalog any repository:
 
 ```bash
 code-intel scan /path/to/repo
-code-intel workspace-scan --workspace void --incremental --skip-unchanged-meta --json
+code-intel workspace-scan --workspace backend-ui --incremental --skip-unchanged-meta --json
 ```
 
 Search the generated catalog:
@@ -121,7 +121,7 @@ code-intel search-text --repo /path/to/repo "API_BASE_URL"
 code-intel references --repo /path/to/repo get_database_url
 code-intel tree --repo /path/to/repo
 code-intel repo-outline --repo /path/to/repo
-code-intel workspace-outline --workspace void
+code-intel workspace-outline --workspace backend-ui
 ```
 
 Check impact before editing a file:
@@ -159,6 +159,22 @@ The SQLite catalog contains:
 | `usage_events` | lookup events used for savings reports |
 
 The catalog is generated data. Keep it out of commits.
+
+### Secret Handling
+
+code-intel does not try to become a full secret-scanning product, but it avoids
+turning obvious secrets into searchable agent context:
+
+- discovery skips common secret-bearing paths such as `.env*`, `.npmrc`,
+  `.pypirc`, `.netrc`, private-key files, keystores, and `.ssh`/`.aws`/`.kube`
+  directories
+- indexed text lines redact common provider tokens, bearer tokens, private-key
+  blocks, and generic `SECRET`/`TOKEN`/`PASSWORD`/`API_KEY` assignments
+- source snippets, `content`, `context-pack`, and MCP context responses use the
+  same redaction marker: `[REDACTED_SECRET]`
+
+This is a safety layer for agent context, not a substitute for tools such as
+GitHub secret scanning or dedicated pre-commit secret detection.
 
 For a project-local ignore without changing tracked files:
 
@@ -228,7 +244,7 @@ For a saved backend+UI workspace, use the workspace name instead of repeating
 paths:
 
 ```bash
-code-intel install-refresh-job --workspace void --interval-minutes 180
+code-intel install-refresh-job --workspace backend-ui --interval-minutes 180
 ```
 
 When running from this source checkout, generate the job with `uv` so launchd can
@@ -236,8 +252,8 @@ find the development copy:
 
 ```bash
 uv run code-intel install-refresh-job \
-  --workspace void \
-  --project /Users/maraujo/git_personal/code-intel \
+  --workspace backend-ui \
+  --project /path/to/code-intel \
   --interval-minutes 180 \
   --label com.code-intel.refresh.dev
 ```
@@ -282,6 +298,14 @@ code-intel find --repo /path/to/repo SymbolName --provider jcodemunch
 The `jcodemunch` provider only reads an existing local jCodemunch SQLite
 database when explicitly requested. It is not required for normal operation.
 
+You can switch the default symbol provider at runtime without changing commands:
+
+```bash
+export CODE_INTEL_DEFAULT_SYMBOL_PROVIDER=jcodemunch
+```
+
+When unset, the default remains `catalog`.
+
 ### `lookup`
 
 Search symbols, file paths, and source text together when you do not know
@@ -289,8 +313,8 @@ whether a query is a function/class name, file stem, UI label, CSS class,
 config key, or string fragment.
 
 ```bash
-code-intel lookup --repo /path/to/repo SurfacePanel
-code-intel lookup --repo /path/to/repo SurfacePanel --source-first
+code-intel lookup --repo /path/to/repo PrimaryPanel
+code-intel lookup --repo /path/to/repo PrimaryPanel --source-first
 code-intel lookup --repo /path/to/repo "API_BASE_URL" --limit 10
 code-intel lookup --repo /path/to/repo "empty state copy" --json
 ```
@@ -307,8 +331,8 @@ window so test files do not waste result slots, and only falls back to bounded
 source text when source/file lookup is empty. Pass `--text-limit 0` explicitly
 with `--source-first` when text fallback should stay disabled.
 Multi-word labels are also tried as bounded identifier/path variants, so a UI
-label like `Incoming Hardware` can resolve source-first to `IncomingHardware*`
-symbols or `incoming-hardware` paths before text fallback.
+label like `Incoming Items` can resolve source-first to `IncomingItems*`
+symbols or `incoming-items` paths before text fallback.
 Use this as the default agent entry point before loading files.
 
 ### `workspace-lookup`
@@ -318,14 +342,14 @@ UI repositories.
 
 ```bash
 code-intel workspace-lookup \
-  --repo /Users/maraujo/git/custom_connectors \
-  --repo /Users/maraujo/git/vme_bmaas \
-  rackCapacity
-code-intel workspace-lookup --repo /path/backend --repo /path/ui/src SurfacePanel --source-first --json
-code-intel workspace-lookup --workspace void VCENTER_CONFIGS --source-first --json
+  --repo /path/to/connector-service \
+  --repo /path/to/backend-ui-app \
+  capacitySummary
+code-intel workspace-lookup --repo /path/backend --repo /path/ui/src PrimaryPanel --source-first --json
+code-intel workspace-lookup --workspace backend-ui SERVICE_CONFIGS --source-first --json
 ```
 
-Results are repo-qualified (`[custom_connectors]`, `[ui/src]`, etc.) and use the
+Results are repo-qualified (`[connector-service]`, `[ui/src]`, etc.) and use the
 same symbol/file/text ranking as `lookup`.
 
 ### `context-pack` and `workspace-context`
@@ -334,11 +358,11 @@ Turn ranked lookup hits into bounded source snippets, so agents can inspect the
 most relevant code without reading full files.
 
 ```bash
-code-intel context-pack --repo /path/to/repo VCENTER_CONFIGS --max-files 2
-code-intel context-pack --repo /path/to/repo VCENTER_CONFIGS --text-limit 0 --max-files 1
-code-intel workspace-context --workspace void rackCapacity --max-files 2 --max-lines-per-file 30
-code-intel workspace-context --workspace void VCENTER_CONFIGS --source-first
-code-intel workspace-context --workspace void SurfacePanel --json
+code-intel context-pack --repo /path/to/repo SERVICE_CONFIGS --max-files 2
+code-intel context-pack --repo /path/to/repo SERVICE_CONFIGS --text-limit 0 --max-files 1
+code-intel workspace-context --workspace backend-ui capacitySummary --max-files 2 --max-lines-per-file 30
+code-intel workspace-context --workspace backend-ui SERVICE_CONFIGS --source-first
+code-intel workspace-context --workspace backend-ui PrimaryPanel --json
 ```
 
 The output includes ranked hit metadata plus line-numbered snippets capped by
@@ -366,14 +390,14 @@ Save repeated backend/UI repo sets once, then use the workspace name for lookup,
 benchmarking, and scheduled refreshes.
 
 ```bash
-code-intel workspace-save void \
-  --repo /Users/maraujo/git/custom_connectors \
-  --repo /Users/maraujo/git/vme_bmaas
+code-intel workspace-save backend-ui \
+  --repo /path/to/connector-service \
+  --repo /path/to/backend-ui-app
 code-intel workspace-list
-code-intel workspace-scan --workspace void --incremental --skip-unchanged-meta --json
-code-intel workspace-lookup --workspace void rackCapacity
-code-intel workspace-benchmark --workspace void --query SurfacePanel --query VCENTER_CONFIGS
-code-intel workflow-benchmark --workspace void --query SurfacePanel --query VCENTER_CONFIGS
+code-intel workspace-scan --workspace backend-ui --incremental --skip-unchanged-meta --json
+code-intel workspace-lookup --workspace backend-ui capacitySummary
+code-intel workspace-benchmark --workspace backend-ui --query PrimaryPanel --query SERVICE_CONFIGS
+code-intel workflow-benchmark --workspace backend-ui --query PrimaryPanel --query SERVICE_CONFIGS
 ```
 
 Workspace files are JSON under `~/.code-intel/workspaces/` by default.
@@ -403,9 +427,9 @@ grep output or full file reads.
 ```bash
 code-intel references --repo /path/to/repo Service
 code-intel references --repo /path/to/repo Service --no-definitions --context 0
-code-intel workspace-references --workspace void SurfacePanel --json
-code-intel workspace-outline --workspace void --json
-code-intel workspace-references --workspace void SurfacePanel --summary-only --json
+code-intel workspace-references --workspace backend-ui PrimaryPanel --json
+code-intel workspace-outline --workspace backend-ui --json
+code-intel workspace-references --workspace backend-ui PrimaryPanel --summary-only --json
 ```
 
 For identifier-shaped queries, the reference filter is boundary-aware, so
@@ -421,9 +445,9 @@ filesystem or reading top-level files.
 
 ```bash
 code-intel tree --repo /path/to/repo --max-depth 3
-code-intel tree --repo /path/to/repo --prefix src/custom_connectors/vcenter --json
+code-intel tree --repo /path/to/repo --prefix src/app --json
 code-intel repo-outline --repo /path/to/repo --top-files 20 --json
-code-intel workspace-outline --workspace void --top-files 10 --json
+code-intel workspace-outline --workspace backend-ui --top-files 10 --json
 ```
 
 `tree` returns directory/file entries with line and symbol counts. `repo-outline`
@@ -499,7 +523,7 @@ code-intel benchmark --repo /path/to/repo \
   --query Service --query create_user \
   --provider catalog --provider jcodemunch \
   --mode symbol --repeat 9 --warmup 3
-code-intel benchmark --repo /path/to/repo --query SurfacePanel --mode lookup
+code-intel benchmark --repo /path/to/repo --query PrimaryPanel --mode lookup
 code-intel benchmark --repo /path/to/repo --query panel-fade --mode text --json
 code-intel benchmark --repo /path/to/repo --query Service --provider catalog --provider jcodemunch --json --summary
 ```
@@ -512,6 +536,12 @@ code-intel catalog workflow directly. Use `--summary` with `--json` when agents
 only need timings, result counts, saved-token estimates, top paths, quality
 signals, and overlap scores.
 
+Benchmark provider order is configurable with:
+
+```bash
+export CODE_INTEL_BENCHMARK_PROVIDERS=catalog,jcodemunch
+```
+
 ### `workspace-benchmark`
 
 Measure unified lookup across several warm catalogs, including backend and UI
@@ -519,12 +549,12 @@ source trees.
 
 ```bash
 code-intel workspace-benchmark \
-  --repo /Users/maraujo/git/custom_connectors \
-  --repo /Users/maraujo/git/vme_bmaas \
-  --query rackCapacity \
-  --query SurfacePanel \
-  --query VCENTER_CONFIGS
-code-intel workspace-benchmark --workspace void --query SurfacePanel --json --summary
+  --repo /path/to/connector-service \
+  --repo /path/to/backend-ui-app \
+  --query capacitySummary \
+  --query PrimaryPanel \
+  --query SERVICE_CONFIGS
+code-intel workspace-benchmark --workspace backend-ui --query PrimaryPanel --json --summary
 ```
 
 The report includes per-catalog health, query latency, selected files, and
@@ -537,14 +567,14 @@ snippets from `context-pack` or `workspace-context`.
 
 ```bash
 code-intel workflow-benchmark \
-  --workspace void \
-  --query SurfacePanel \
-  --query VCENTER_CONFIGS \
+  --workspace backend-ui \
+  --query PrimaryPanel \
+  --query SERVICE_CONFIGS \
   --source-first \
   --repeat 9 \
   --warmup 3 \
   --json --summary
-code-intel workflow-benchmark --workspace void --query VCENTER_CONFIGS --source-first --max-files 1
+code-intel workflow-benchmark --workspace backend-ui --query SERVICE_CONFIGS --source-first --max-files 1
 ```
 
 The report includes query latency, context payload bytes, selected files,
@@ -559,18 +589,19 @@ Save a repeatable benchmark suite so real-world provider and workflow checks can
 be rerun after each indexing or ranking change.
 
 ```bash
-code-intel benchmark-suite-save void \
-  --workspace void \
-  --symbol-repo /Users/maraujo/git/custom_connectors \
-  --symbol-query VCENTER_CONFIGS \
-  --symbol-query create_received_asset \
-  --workflow-query VCENTER_CONFIGS \
+code-intel benchmark-suite-save backend-ui \
+  --workspace backend-ui \
+  --symbol-repo /path/to/connector-service \
+  --symbol-query SERVICE_CONFIGS \
+  --symbol-query create_record \
+  --workflow-query SERVICE_CONFIGS \
   --workflow-query "Hardware Capacity Planner" \
   --repeat 7 --warmup 2 --limit 5
 code-intel benchmark-suite-list
-code-intel benchmark-suite-run void --provider catalog --provider jcodemunch \
+code-intel benchmark-suite-run backend-ui --provider catalog --provider jcodemunch \
   --record-history --json --summary
-code-intel benchmark-suite-history void --limit 5
+code-intel benchmark-suite-run backend-ui --json --summary
+code-intel benchmark-suite-history backend-ui --limit 5
 ```
 
 Suite files are JSON under `~/.code-intel/benchmark-suites/` by default. A suite
@@ -841,53 +872,24 @@ exists.
 
 ## Validation Snapshot
 
-Sample local validation on July 2, 2026 against a real backend+UI workspace.
-Timings are from one machine and should be treated as directional benchmark
-evidence, not universal performance guarantees.
-
-Workspace under test:
-
-```bash
-code-intel workspace-save void \
-  --repo /Users/maraujo/git/custom_connectors \
-  --repo /Users/maraujo/git/vme_bmaas
-```
+Latest local validation on July 19, 2026 against this repository.
+Timings are directional; run again on your hardware for local baselines.
 
 | Check | Result |
 | --- | --- |
-| Test suite | `147 passed` |
-| Full workspace catalog | `custom_connectors` + full `vme_bmaas`: 1,239 files, 19,281 symbols, 9,825 dependencies, 502,595 indexed text lines |
-| `custom_connectors` catalog | 437 files, 9,056 symbols, 3,274 dependencies, 176,396 indexed text lines |
-| `vme_bmaas` full repo catalog | 802 files, 10,225 symbols, 6,551 dependencies, 326,199 indexed text lines |
-| `vme_bmaas` language coverage | 600 Python files, 141 JSX files, 59 JavaScript files, 2 CSS files |
-| Initial full BMaaS scan | 802 changed files written in 6.49s: 53.6ms discovery, 111.3ms change detection, 1.89s analysis, 4.43s SQLite write |
-| Incremental no-change workspace scan | 2 repos, 1,239 reused files, 0 changed, 0 writes, 62.9ms total with repo concurrency; `custom_connectors` 39.1ms and `vme_bmaas` 59.6ms catalog timings |
-| Workspace outline | Reports 1,239 files, 591,544 physical source lines, and 19,281 symbols across backend and UI; top files include BMaaS backend modules and UI pages |
-| Source-first workspace context | `workflow-benchmark --workspace void --source-first` returns bounded snippets from the right repo without reading full files |
-| `incoming_hardware` workflow query | 1.624ms median, 5 selected files, 243 selected lines; returns BMaaS API/config/SFTP backend files plus `ui/src/pages/IncomingNewHardwarePage.jsx`; estimated 4,729,392 tokens avoided |
-| `SurfacePanel` workflow query | 0.450ms median, 1 selected UI component file, 20 selected lines; estimated 4,732,127 tokens avoided |
-| `VCENTER_CONFIGS` workflow query | 0.741ms median, 1 selected connector constants file, 80 selected lines; estimated 4,731,632 tokens avoided |
-| `create_received_asset` workflow query | 0.838ms median, 1 selected Sunbird client file, 80 selected lines; estimated 4,731,212 tokens avoided |
-| `SystemHealth` workflow query | 0.482ms median, 1 selected UI page, 7 selected lines; estimated 4,732,367 tokens avoided |
-| MCP workspace context | Direct `workspace_context` helper calls over the saved six-query `void` suite averaged 3.05ms median after reusable catalog stores, reusable file/symbol/line-row caches, and catalog-backed snippet reads, down from 7.95ms before cache wiring |
-| MCP batch context | One `workspace_context_many` batch over the six-query suite measured 9.2ms median vs 13.8ms for six separate helper calls; compact JSON dropped from 9,580 to 9,169 bytes |
-| MCP shared snippets | Auto shared snippets cut related `incoming` batch payloads by 14.1% and related `vcenter` batch payloads by 44.8% |
-| MCP duplicate queries | Case-only `vcenter` variants reuse lookup and serialized payloads at 3.1ms median; six repeated `SurfacePanel` rows measure 1.3ms median |
-| Provider comparison: `custom_connectors` | code-intel catalog has 437 files and 9,056 symbols; local jCodemunch DB has 213 files and 6,552 symbols |
-| `custom_connectors` quality | For `VCENTER_CONFIGS`, code-intel returns the source constants file first in 3.736ms median; jCodemunch returns a test file first in 10.838ms median |
-| `custom_connectors` Sunbird query | For `create_received_asset`, code-intel returns `src/custom_connectors/sunbird/client.py` first in 4.491ms median; jCodemunch returns `tests/sunbird/test_received_asset.py` first in 12.325ms median |
-| Provider comparison: `vme_bmaas` | code-intel catalog has 802 files and 10,225 symbols; local jCodemunch DB has 1 file and 22 symbols, so apparent low latency is not comparable coverage |
-| `vme_bmaas` quality | code-intel resolves `SurfacePanel` to `ui/src/components/shared/SurfacePanel.jsx`; the stale local jCodemunch DB returns `ui/src/pages/SystemHealthPage.jsx` for that query and has 0 hits for `incoming_hardware` |
-| Missing catalog guard | `find` exits with "Run `code-intel scan` first" and creates no partial DB |
-| Risk report | returns direct dependents, transitive dependents, test counts, and risk labels |
+| Full test suite | `158 passed` (`uv run pytest`) |
+| Benchmark tests | `18 passed` (`tests/test_benchmark.py`, `tests/test_benchmark_suite.py`) |
+| Catalog scan (`code-intel scan --json .`) | `49 files`, `810 symbols`, `355 dependencies`, `15,320 indexed text lines`; first full scan took `325.9ms` total (`discovery` 14.3ms, `change_detection` 6.8ms, `analysis` 159.1ms, `write` 145.6ms) |
+| Benchmark command | `code-intel benchmark --repo . --query SymbolSearchResult --query ProviderName --query run_benchmark --provider catalog --provider jcodemunch --mode symbol --repeat 3 --warmup 1 --limit 20 --json` |
+| Provider health | `catalog` available; `jcodemunch` unavailable (no local `.code-index` DB under `HOME`) |
+| `SymbolSearchResult` query | catalog median `0.452ms`, 1 result; jcodemunch median `7.680ms`, 0 results |
+| `ProviderName` query | catalog median `0.365ms`, 3 results; jcodemunch median `7.186ms`, 0 results |
+| `run_benchmark` query | catalog median `0.410ms`, 6 results; jcodemunch median `5.884ms`, 0 results |
+| Catalog guard | `find` reports `Run code-intel scan first` when no catalog is present |
 
-The comparison is intentionally conservative: `grep` can be faster for a single
-text query, but it returns text matches rather than structured symbol records,
-dependency impact, likely tests, risk ranking, bounded source snippets, and
-savings telemetry. jCodemunch can be useful when its local database is fresh,
-but these measurements show why provider health and coverage matter: a tiny
-stale index can look fast while missing the backend and returning the wrong UI
-file.
+These numbers are expected to vary by repository shape and warm cache state. The key
+result is the same: catalog-first lookup is functional and fast, with jCodemunch used only
+as an explicit migration/comparison fallback when a local DB exists.
 
 ## Supported Source Types
 
@@ -915,17 +917,16 @@ tool:
 | Code of conduct | `CODE_OF_CONDUCT.md` |
 | Security reporting | `SECURITY.md` |
 | Support guidance | `SUPPORT.md` |
-| CI | `.github/workflows/ci.yml` runs Ruff, formatting, and tests on `main`, `dev`, and pull requests |
+| CI | `.github/workflows/ci.yml` runs Ruff, formatting, and tests on `dev` and pull requests |
 | Ownership | `.github/CODEOWNERS` requires review from `@marlonfcaraujo` when branch protection is enabled |
 | Dependency updates | `.github/dependabot.yml` checks Python and GitHub Actions updates weekly |
 | Issue and PR templates | `.github/ISSUE_TEMPLATE/*` and `.github/pull_request_template.md` |
 | Repository settings | `docs/REPOSITORY_SETTINGS.md` documents recommended public repo settings and the `main` branch protection command |
 
-The remote repository must have a `main` branch before GitHub's branch
-protection endpoint can lock it. Once `main` exists, use the command in
-`docs/REPOSITORY_SETTINGS.md` to require pull requests, one CODEOWNERS review,
-the `test` CI job, linear history, resolved conversations, and no force pushes
-or branch deletion.
+The default branch in this repo is `dev`. If `main` is created later, use the
+command in `docs/REPOSITORY_SETTINGS.md` to enable branch protection for pull
+requests, one CODEOWNERS review, the `test` CI job, linear history, resolved
+conversations, and no force pushes or branch deletion.
 
 ## Development
 

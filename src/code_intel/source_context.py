@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from code_intel.catalog_store import CatalogStore
+from code_intel.secret_filter import redact_source_text
 
 
 def get_file_tree(
@@ -242,7 +243,7 @@ def get_file_content(
     repo_root = Path(repo_path).resolve()
     resolved_path = _resolve_cataloged_file(store, file_path)
     source_path = repo_root / resolved_path
-    source = source_path.read_text(errors="replace")
+    source = redact_source_text(source_path.read_text(errors="replace"))
     lines = source.splitlines()
     total_lines = len(lines)
 
