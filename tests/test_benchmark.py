@@ -113,6 +113,36 @@ def test_cli_benchmark_outputs_json(tmp_path: Path, monkeypatch, capsys) -> None
     assert payload["queries"][0]["runs"][0]["provider"] == "catalog"
 
 
+def test_cli_benchmark_uses_env_default_providers(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = _make_repo(tmp_path)
+    build_catalog(repo)
+    monkeypatch.setenv("CODE_INTEL_BENCHMARK_PROVIDERS", "jcodemunch")
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert (
+        main(
+            [
+                "benchmark",
+                "--repo",
+                str(repo),
+                "--query",
+                "Service",
+                "--repeat",
+                "1",
+                "--warmup",
+                "0",
+                "--mode",
+                "symbol",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["providers"] == ["jcodemunch"]
+
+
 def test_cli_benchmark_summary_outputs_compact_json(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = _make_repo(tmp_path)
     build_catalog(repo)

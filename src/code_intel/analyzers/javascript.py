@@ -7,6 +7,7 @@ from pathlib import Path
 
 from code_intel.analyzers.base import count_lines, indexed_source_lines, line_of, relative_path
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
+from code_intel.secret_filter import redact_secret_line
 
 _IMPORT_RE = re.compile(r"""(?:import|export)\s+(?:[^'"\n]*?\s+from\s+)?['"]([^'"]+)['"]""")
 _REQUIRE_RE = re.compile(r"""require\s*\(\s*['"]([^'"]+)['"]\s*\)""")
@@ -126,7 +127,7 @@ def _extract_symbols(source: str, rel: str) -> list[Symbol]:
                     kind=_classify_symbol_kind(kind, name),
                     path=rel,
                     line=line_of(source, match.start()),
-                    signature=match.group(0).strip(),
+                    signature=redact_secret_line(match.group(0).strip()),
                     exported=exported or not name.startswith("_"),
                 )
             )

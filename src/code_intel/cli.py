@@ -10,7 +10,6 @@ from pathlib import Path
 
 from code_intel.agent_notes import install_agent_notes
 from code_intel.benchmark import (
-    DEFAULT_BENCHMARK_PROVIDERS,
     report_to_json,
     report_to_summary_json,
     run_benchmark,
@@ -49,6 +48,7 @@ from code_intel.context_pack import (
 from code_intel.health import assess_catalog_health
 from code_intel.lookup import lookup, lookup_selected_paths, lookup_to_dict
 from code_intel.mcp_server import serve_mcp
+from code_intel.provider_config import resolve_default_benchmark_providers, resolve_default_symbol_provider
 from code_intel.references import (
     ReferenceFileSummary,
     ReferenceMatch,
@@ -137,8 +137,8 @@ def _build_parser() -> argparse.ArgumentParser:
     find_parser.add_argument(
         "--provider",
         choices=("catalog", "jcodemunch"),
-        default="catalog",
-        help="Symbol provider to use (default: catalog)",
+        default=None,
+        help=("Symbol provider to use (default: value from CODE_INTEL_DEFAULT_SYMBOL_PROVIDER; defaults to catalog)"),
     )
     find_parser.set_defaults(func=_cmd_find)
 
@@ -391,7 +391,10 @@ def _build_parser() -> argparse.ArgumentParser:
         action="append",
         choices=("catalog", "jcodemunch"),
         default=[],
-        help="Provider to benchmark; repeat to compare multiple providers",
+        help=(
+            "Provider to benchmark; repeat to compare multiple providers (default: "
+            "CODE_INTEL_BENCHMARK_PROVIDERS or catalog,jcodemunch)"
+        ),
     )
     benchmark_parser.add_argument("--limit", type=int, default=20, help="Maximum results requested per query")
     benchmark_parser.add_argument("--repeat", type=int, default=5, help="Measured repetitions per query/provider")
@@ -571,7 +574,10 @@ def _build_parser() -> argparse.ArgumentParser:
         action="append",
         choices=("catalog", "jcodemunch"),
         default=[],
-        help="Symbol provider to benchmark; repeat to compare multiple providers",
+        help=(
+            "Symbol provider to benchmark; repeat to compare multiple providers "
+            "(default: CODE_INTEL_BENCHMARK_PROVIDERS or catalog,jcodemunch)"
+        ),
     )
     benchmark_suite_run_parser.add_argument("--limit", type=int, help="Override suite hit limit")
     benchmark_suite_run_parser.add_argument("--repeat", type=int, help="Override measured repetitions")
@@ -759,7 +765,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
 def _cmd_find(args: argparse.Namespace) -> int:
     repo_root = Path(args.repo).resolve()
     store = _store_from_args(args)
-    provider: ProviderName = args.provider
+    provider: ProviderName = args.provider if args.provider is not None else resolve_default_symbol_provider()
     if provider == "catalog":
         _require_catalog(store)
     result = search_symbols(repo_root, store, args.query, limit=args.limit, provider=provider)
@@ -1335,7 +1341,7 @@ def _cmd_savings(args: argparse.Namespace) -> int:
 
 def _cmd_benchmark(args: argparse.Namespace) -> int:
     queries = [*args.query, *_queries_from_file(args.queries_file)]
-    providers = tuple(args.provider or DEFAULT_BENCHMARK_PROVIDERS)
+    providers = tuple(args.provider or resolve_default_benchmark_providers())
     report = run_benchmark(
         args.repo,
         queries=queries,
@@ -1537,7 +1543,7 @@ def _cmd_benchmark_suite_list(args: argparse.Namespace) -> int:
 
 def _cmd_benchmark_suite_run(args: argparse.Namespace) -> int:
     config = load_benchmark_suite_config(args.name, config_dir=args.suite_dir)
-    providers = tuple(args.provider or DEFAULT_BENCHMARK_PROVIDERS)
+    providers = tuple(args.provider or resolve_default_benchmark_providers())
     run = run_benchmark_suite(
         config,
         providers=providers,

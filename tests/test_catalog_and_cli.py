@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import subprocess
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 
+import pytest
+
+import code_intel.catalog_store as catalog_store_module
 import code_intel.cataloger as cataloger
 from code_intel.catalog_store import CatalogStore
 from code_intel.cataloger import CATALOG_ANALYZER_VERSION, build_catalog
@@ -110,6 +115,115 @@ def test_reused_catalog_store_caches_file_rows_for_path_search(tmp_path: Path) -
     store.close()
 
 
+def test_symbol_prefix_search_ranks_exact_match_before_limit(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    declarations = [f"def get_{index:03d}() -> None:\n    pass" for index in range(100)]
+    declarations.append("def get() -> None:\n    pass")
+    (repo / "many_getters.py").write_text("\n\n".join(declarations))
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    rows = store.search_symbol_prefixes(["get"], limit=5)
+
+    assert str(rows[0]["name"]) == "get"
+
+
+def test_reused_catalog_store_refreshes_caches_after_external_scan(tmp_path: Path) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo, reuse_connection=True)
+
+    assert store.search_files_many(["new_feature"], limit=5) == []
+    assert store.get_file("src/app/new_feature.py") is None
+    (repo / "src/app/new_feature.py").write_text("def added() -> str:\n    return 'added'\n")
+
+    build_catalog(repo, incremental=True)
+
+    assert [str(row["path"]) for row in store.search_files_many(["new_feature"], limit=5)] == ["src/app/new_feature.py"]
+    assert store.get_file("src/app/new_feature.py") is not None
+    store.close()
+
+
+def test_reused_catalog_store_retries_when_catalog_is_replaced_during_open(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo, reuse_connection=True)
+    original_open_connection = store._open_connection
+    replaced = False
+
+    def racing_open_connection():
+        nonlocal replaced
+        connection = original_open_connection()
+        if not replaced:
+            replaced = True
+            (repo / "src/app/service.py").write_text("class ReplacementService:\n    pass\n")
+            build_catalog(repo)
+        return connection
+
+    monkeypatch.setattr(store, "_open_connection", racing_open_connection)
+
+    rows = store.search_symbols("ReplacementService", include_fuzzy=False)
+
+    assert str(rows[0]["name"]) == "ReplacementService"
+    assert store.search_symbols("Service", include_fuzzy=False) == []
+    store.close()
+
+
+def test_reused_catalog_store_detects_replace_after_validated_open(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo, reuse_connection=True)
+    original_open_reusable_connection = store._open_reusable_connection
+    replaced = False
+
+    def replace_after_validated_open():
+        nonlocal replaced
+        opened = original_open_reusable_connection()
+        if not replaced:
+            replaced = True
+            (repo / "src/app/service.py").write_text("class ReplacementService:\n    pass\n")
+            build_catalog(repo)
+        return opened
+
+    monkeypatch.setattr(store, "_open_reusable_connection", replace_after_validated_open)
+
+    store.search_symbols("Service", include_fuzzy=False)
+    replacement_rows = store.search_symbols("ReplacementService", include_fuzzy=False)
+
+    assert str(replacement_rows[0]["name"]) == "ReplacementService"
+    assert store.search_symbols("Service", include_fuzzy=False) == []
+    store.close()
+
+
+def test_reusable_writer_marks_state_before_releasing_write_lock(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo, reuse_connection=True)
+    original_mark_current = store._mark_reusable_state_current
+    mark_observed = False
+    lock_path = store.database_path.with_name(f".{store.database_path.name}.write-lock.sqlite")
+
+    def assert_write_lock_is_held() -> None:
+        nonlocal mark_observed
+        competing_connection = sqlite3.connect(lock_path, timeout=0, isolation_level=None)
+        try:
+            competing_connection.execute("PRAGMA busy_timeout = 0")
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                competing_connection.execute("BEGIN EXCLUSIVE")
+        finally:
+            competing_connection.close()
+        mark_observed = True
+        original_mark_current()
+
+    monkeypatch.setattr(store, "_mark_reusable_state_current", assert_write_lock_is_held)
+
+    store.record_usage_event(tool="lookup", provider="catalog", result_count=1)
+
+    assert mark_observed
+    store.close()
+
+
 def test_risk_report_orders_highest_scores_first(tmp_path: Path) -> None:
     repo = _make_python_repo(tmp_path)
     build_catalog(repo)
@@ -184,6 +298,26 @@ def test_catalog_and_cli_search_indexed_text(tmp_path: Path, capsys) -> None:
     assert "return 'ok'" in matches[0].content
     assert main(["search-text", "--repo", str(repo), "return 'ok'", "--context", "0"]) == 0
     assert "src/app/service.py:3" in capsys.readouterr().out
+
+
+def test_catalog_redacts_secret_values_from_text_and_symbol_signatures(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "settings.py").write_text(
+        'API_TOKEN = "sk-1234567890abcdefghijklmnopqrstuvwxyz"\ndef token_name() -> str:\n    return API_TOKEN\n'
+    )
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+
+    secret_matches = store.search_text("sk-1234567890", limit=5, context_lines=0)
+    token_matches = store.search_text("API_TOKEN", limit=5, context_lines=0)
+    symbols = store.search_symbols("API_TOKEN")
+
+    assert secret_matches == []
+    assert token_matches
+    assert "sk-1234567890" not in token_matches[0].content
+    assert "[REDACTED_SECRET]" in token_matches[0].content
+    assert symbols[0]["signature"] == 'API_TOKEN = "[REDACTED_SECRET]"'
 
 
 def test_cli_lookup_combines_symbols_and_text(tmp_path: Path, capsys) -> None:
@@ -757,6 +891,108 @@ def test_default_scan_uses_serial_workers_for_small_repos(tmp_path: Path) -> Non
     store = CatalogStore.for_repo(repo)
 
     assert store.get_meta()["analysis_workers"] == "1"
+
+
+def test_full_scan_failure_preserves_last_good_catalog(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+    store.record_usage_event(tool="lookup", provider="catalog", result_count=1)
+    database_path = store.database_path
+    (repo / "src/app/service.py").write_text("class ReplacementService:\n    pass\n")
+
+    def fail_insert_file(_self: CatalogStore, _connection, _source_file) -> None:
+        raise RuntimeError("forced catalog write failure")
+
+    monkeypatch.setattr(CatalogStore, "_insert_file", fail_insert_file)
+
+    with pytest.raises(RuntimeError, match="forced catalog write failure"):
+        build_catalog(repo)
+
+    preserved_store = CatalogStore.for_repo(repo)
+    assert preserved_store.search_symbols("Service")[0]["name"] == "Service"
+    assert preserved_store.search_symbols("ReplacementService", include_fuzzy=False) == []
+    assert preserved_store.usage_summary(detailed=False)["events"] == 1
+    assert list(database_path.parent.glob(f".{database_path.name}.*.tmp")) == []
+
+
+def test_full_scan_preserves_usage_history_after_atomic_publish(tmp_path: Path) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    store = CatalogStore.for_repo(repo)
+    store.record_usage_event(tool="lookup", provider="catalog", result_count=1)
+    (repo / "src/app/service.py").write_text("class ReplacementService:\n    pass\n")
+
+    build_catalog(repo)
+    published_store = CatalogStore.for_repo(repo)
+
+    assert published_store.search_symbols("ReplacementService")[0]["name"] == "ReplacementService"
+    assert published_store.search_symbols("Service", include_fuzzy=False) == []
+    assert published_store.usage_summary(detailed=False)["events"] == 1
+
+
+def test_full_scan_serializes_usage_writer_during_atomic_publish(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    initial_store = CatalogStore.for_repo(repo)
+    initial_store.record_usage_event(tool="lookup", provider="catalog", query="initial", result_count=1)
+    writer_ready = Event()
+    writer_started = Event()
+    start_writer = Event()
+    writer_threads: list[Thread] = []
+    writer_errors: list[BaseException] = []
+    real_replace = catalog_store_module.os.replace
+
+    def write_late_usage_event() -> None:
+        late_store = CatalogStore.for_repo(repo, reuse_connection=True)
+        try:
+            late_store.connect()
+            writer_ready.set()
+            start_writer.wait(timeout=5)
+            writer_started.set()
+            late_store.record_usage_event(tool="lookup", provider="catalog", query="late", result_count=1)
+        except BaseException as error:
+            writer_errors.append(error)
+        finally:
+            late_store.close()
+
+    def replace_with_waiting_writer(source: str | Path, destination: str | Path) -> None:
+        start_writer.set()
+        assert writer_started.wait(timeout=2)
+        real_replace(source, destination)
+
+    writer = Thread(target=write_late_usage_event)
+    writer.start()
+    writer_threads.append(writer)
+    assert writer_ready.wait(timeout=2)
+    monkeypatch.setattr(catalog_store_module.os, "replace", replace_with_waiting_writer)
+    (repo / "src/app/service.py").write_text("class ReplacementService:\n    pass\n")
+
+    build_catalog(repo)
+    writer_threads[0].join(timeout=5)
+    summary = CatalogStore.for_repo(repo).usage_summary()
+
+    assert not writer_threads[0].is_alive()
+    assert writer_errors == []
+    assert summary["events"] == 2
+    assert {str(event["query"]) for event in summary["recent"]} == {"initial", "late"}
+
+
+def test_full_scan_interrupt_cleans_temporary_catalog(tmp_path: Path, monkeypatch) -> None:
+    repo = _make_python_repo(tmp_path)
+    build_catalog(repo)
+    database_path = CatalogStore.for_repo(repo).database_path
+
+    def interrupt_write(_self: CatalogStore, _analyses, _metadata) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(CatalogStore, "write_catalog", interrupt_write)
+
+    with pytest.raises(KeyboardInterrupt):
+        build_catalog(repo)
+
+    assert CatalogStore.for_repo(repo).search_symbols("Service")[0]["name"] == "Service"
+    assert list(database_path.parent.glob(f".{database_path.name}.*.tmp")) == []
 
 
 def test_incremental_scan_fast_path_skips_analysis_loads(tmp_path: Path, monkeypatch) -> None:

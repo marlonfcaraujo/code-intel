@@ -23,6 +23,19 @@ def test_discovery_skips_nested_worktree_directories(tmp_path: Path) -> None:
     assert [path.relative_to(repo).as_posix() for path in files] == ["src/app.py"]
 
 
+def test_discovery_skips_secret_like_paths_even_when_extension_is_supported(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    (repo / ".ssh").mkdir()
+    (repo / "src/app.py").write_text("def app() -> None:\n    pass\n")
+    (repo / ".env.py").write_text("TOKEN = 'sk-1234567890abcdefghijklmnopqrstuvwxyz'\n")
+    (repo / ".ssh/id_rsa.py").write_text("TOKEN = 'sk-1234567890abcdefghijklmnopqrstuvwxyz'\n")
+
+    files = discover_source_files(repo, frozenset({".py"}))
+
+    assert [path.relative_to(repo).as_posix() for path in files] == ["src/app.py"]
+
+
 def test_discovery_catalogs_worktree_when_it_is_repo_root(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     worktree = repo / ".worktrees/temporal_migration"
