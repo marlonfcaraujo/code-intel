@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-mcp = ["mcp[cli]>=1.11,<2"]
+mcp = ["mcp[cli]>=1.11,<3"]
 
 [project.scripts]
 code-intel = "code_intel.cli:main"
