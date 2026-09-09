@@ -670,6 +670,52 @@ class CatalogStore:
                 (bounded_limit,),
             ).fetchall()
 
+    def keyword_symbol_candidates(self, terms: list[str], *, include_body: bool = True) -> list[dict[str, Any]]:
+        """Collect bounded metadata and innermost-symbol source evidence.
+
+        Args:
+            terms: At most eight alphanumeric keywords, each at least three characters.
+            include_body: Whether to query the text index for source evidence.
+
+        Returns:
+            At most 320 symbol dictionaries: 128 metadata candidates plus at
+            most 24 source-line candidates per term. Queries are parameterized.
+        """
+        terms = list(dict.fromkeys(terms))[:8]
+        if not terms or any(not re.fullmatch(r"[a-z0-9]{3,48}", term) for term in terms):
+            return []
+        expression = " + ".join(
+            "(instr(lower(qualified_name || ' ' || signature || ' ' || doc), ?) > 0)" for _ in terms
+        )
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"SELECT *, ({expression}) AS coverage FROM symbols WHERE coverage > 0 "
+                "ORDER BY coverage DESC, path, line LIMIT 128",
+                tuple(terms),
+            ).fetchall()
+            candidates = {row["id"]: {**dict(row), "body_terms": []} for row in rows}
+            if include_body and self.supports_text_index():
+                matches = [
+                    (row["path"], row["line"], term)
+                    for term in terms
+                    for row in _search_text_rows(connection, term, 24)
+                ]
+                if matches:
+                    placeholders = ",".join("(?,?,?)" for _ in matches)
+                    evidence = connection.execute(
+                        f"WITH matches(path,line,term) AS (VALUES {placeholders}) "
+                        "SELECT s.*, m.term FROM matches m JOIN symbols s ON s.id = "
+                        "(SELECT id FROM symbols WHERE path=m.path AND line<=m.line "
+                        "AND COALESCE(end_line,line)>=m.line "
+                        "ORDER BY COALESCE(end_line,line)-line, id LIMIT 1)",
+                        tuple(value for match in matches for value in match),
+                    ).fetchall()
+                    for row in evidence:
+                        candidate = candidates.setdefault(row["id"], {**dict(row), "body_terms": []})
+                        if row["term"] not in candidate["body_terms"]:
+                            candidate["body_terms"].append(row["term"])
+        return list(candidates.values())
+
     def search_files(self, query: str, limit: int = 20) -> list[sqlite3.Row]:
         """Search cataloged file paths by path, basename, or stem.
 

@@ -734,6 +734,13 @@ experiment additionally needs a task definition, tool preparation, and a grader.
 
 #### Measured example: public repository pilot
 
+The [follow-up with keyword recovery](docs/BENCHMARKS.md#keyword-recovery-follow-up)
+now returns specialized matches. In six paired comparisons it used 22.7% less
+total input and 8.6% less uncached input overall, with every task passing.
+Those totals are driven by catalog-publication navigation; the two simpler tasks
+used more total input, and the median pair did not improve. The original pilot
+below is retained for comparison.
+
 On September 9, 2026, twelve Codex runs compared three source-navigation tasks
 twice per arm on code-intel's own public source (`gpt-5.6-luna`, low reasoning).
 
@@ -752,6 +759,29 @@ returned no matches: the model used long natural-language phrases and solved the
 tasks with basic tools. The difference cannot be credited to useful code-intel
 retrieval. See [methodology, timings, limitations and reproduction](docs/BENCHMARKS.md)
 and the [machine-readable results](docs/benchmarks/codex-pilot-2026-09-09.json).
+
+#### Query guidance and recovery
+
+Prefer an exact identifier or two to four distinctive keywords:
+
+```bash
+code-intel lookup --repo . "publish catalog" --json
+code-intel context-pack --repo . "CatalogStore.publish_catalog" \
+  --max-files 1 --max-lines-per-file 80 --json
+```
+
+Lookup first tries the original query and naming-style variants. Only if those
+miss, a multiword query can use lexical recovery: at most eight terms, 128 symbol
+metadata candidates, and 24 indexed source lines per term. Body matches are
+associated with their innermost containing symbol. Candidates need multiple
+matching terms, and results expose the recovery strategy. This is not semantic
+search; incomplete vocabulary can still produce unrelated matches.
+
+MCP lookup includes indexed docstring summaries and source excerpts for up to
+three symbol hits, capped at 40 lines and 6,000 characters each. Set
+`include_context=false` for metadata-only results or request a context pack for
+more source. Empty results provide guidance rather than silently returning an
+empty list. Existing compatible indexes can be reused; no new schema is required.
 
 ### `doctor`
 

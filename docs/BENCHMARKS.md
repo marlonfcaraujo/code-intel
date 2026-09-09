@@ -1,5 +1,9 @@
 # Measured Codex pilot
 
+The original experiment is retained below. See the
+[keyword-recovery follow-up](#keyword-recovery-follow-up) for the subsequent
+implementation and its separate measurements.
+
 On September 9, 2026, a local pilot measured actual Codex CLI usage against the
 public code-intel repository at commit
 `f675a1ddc78614ca4131ffc38396b55e4cf615ba`. It requested `gpt-5.6-luna` with low
@@ -97,3 +101,75 @@ Raw transcripts stay in the ignored local output directory with owner-only
 permissions. The published [aggregate and per-run counters](benchmarks/codex-pilot-2026-09-09.json)
 contain only public task labels, token counts, tool names and timings. No private
 repositories, prompts, credentials, session IDs or machine paths are included.
+
+## Keyword-recovery follow-up
+
+A second twelve-run experiment on September 9 used the **same source commit,
+model, reasoning effort, three task prompts, graders, baseline tools and arm
+order**. The treatment changed its descriptions to recommend concise lexical
+queries, enabled bounded keyword recovery after empty queries, and included
+indexed summaries/excerpts in lookup responses. The source was pinned with the
+new `--revision` option so later repository edits did not change the tasks.
+
+| Metric, six runs per arm | Basic read/search | Updated code-intel available |
+| --- | ---: | ---: |
+| Tasks passed | 6/6 | 6/6 |
+| Input tokens, including cached input | 457,781 | 354,013 |
+| Cached input tokens, included above | 293,888 | 204,288 |
+| Uncached input tokens | 163,893 | 149,725 |
+| Output tokens | 2,344 | 2,046 |
+| Reported cache-write tokens | 0 | 0 |
+| Agent elapsed time, excluding preparation/indexing | 109.941 s | 101.282 s |
+
+Summed input decreased 22.7%, uncached input 8.6%, output 12.7%, and agent time
+7.9%. Fresh treatment indexes added 5.170 seconds across six runs. These are
+observed usage/timing differences, not an invoice-based savings calculation.
+
+The aggregate hides an important difference between tasks:
+
+| Task, two runs per arm | Baseline input | Treatment input | Interpretation |
+| --- | ---: | ---: | --- |
+| Integration defaults | 115,896 | 118,423 | 2.2% more input |
+| Refresh schedule | 104,604 | 117,626 | 12.5% more input |
+| Catalog publication | 237,281 | 117,964 | 50.3% less input |
+
+The median paired input reduction was **-2.04%**: the median pair used slightly
+more input with code-intel. The larger catalog-publication gains dominate the
+summed reduction. This supports further testing for structural navigation, not
+a general claim that every task becomes cheaper.
+
+Unlike the original pilot, all six treatment runs received non-empty specialized
+results: 14 of 16 lookup calls returned hits. No context-pack calls were made.
+Non-empty does not necessarily mean relevant: the shortened query `scheduled
+index refresh` returned unrelated catalog getters, while more distinctive
+queries found the target symbols. Ranking and query coverage still need work.
+All twelve results are included; cache conditions remain uncontrolled.
+
+### Retrieval checks before the model runs
+
+A deterministic set of eight public-source queries returned the expected symbol
+in the top three for **8/8 with recovery**, versus **0/8 using exact/phrase lookup
+without recovery**. The set contains the four phrases that failed in the first
+pilot and four additional source questions. Six independent synthetic questions
+also pass in the regression tests, with negative/noise, facet-control and result
+budget checks. These are small crafted checks, not a blinded benchmark or proof
+of general semantic understanding.
+
+Reproduce the offline check without model calls:
+
+```bash
+uv run python benchmarks/retrieval_eval.py --repo . \
+  --revision f675a1ddc78614ca4131ffc38396b55e4cf615ba \
+  --output .code-intel/experiments/retrieval-eval.json
+```
+
+Repeat the paid/usage-consuming agent comparison with a new output directory:
+
+```bash
+uv run python benchmarks/codex_pilot.py run --repo . \
+  --revision f675a1ddc78614ca4131ffc38396b55e4cf615ba \
+  --output .code-intel/experiments/recovery-pilot --repeat 2
+```
+
+Artifacts: [paired run counters](benchmarks/codex-recovery-2026-09-09.json) and
+[offline retrieval results](benchmarks/retrieval-recovery-2026-09-09.json).

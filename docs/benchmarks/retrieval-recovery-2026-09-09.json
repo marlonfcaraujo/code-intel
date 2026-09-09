@@ -1,0 +1,362 @@
+{
+  "source_revision": "f675a1ddc78614ca4131ffc38396b55e4cf615ba",
+  "summary": {
+    "exact_phrase": {
+      "queries": 8,
+      "hits_at_3": 0
+    },
+    "keyword_recovery": {
+      "queries": 8,
+      "hits_at_3": 8
+    }
+  },
+  "records": [
+    {
+      "query": "function supplies missing integration configuration defaults enabled timeout_seconds schema_version",
+      "expected_symbol": "migrate_config",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 4.12,
+      "hits": []
+    },
+    {
+      "query": "function supplies missing integration configuration defaults enabled timeout_seconds schema_version",
+      "expected_symbol": "migrate_config",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 23.985,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/config_upgrade.py",
+          "line": 20,
+          "label": "function migrate_config",
+          "detail": "def migrate_config(payload: dict[str, Any], kind: str) -> dict[str, Any]:",
+          "score": 840,
+          "summary": "Return an upgraded configuration without mutating user values.",
+          "end_line": 55
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/integrations.py",
+          "line": 135,
+          "label": "function _command",
+          "detail": "def _command(args: argparse.Namespace) -> int:",
+          "score": 990,
+          "summary": "",
+          "end_line": 177
+        }
+      ]
+    },
+    {
+      "query": "scheduled index refresh interval launchd",
+      "expected_symbol": "build_launchd_refresh_job",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.504,
+      "hits": []
+    },
+    {
+      "query": "scheduled index refresh interval launchd",
+      "expected_symbol": "build_launchd_refresh_job",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 13.763,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/refresh_job.py",
+          "line": 43,
+          "label": "method LaunchdRefreshJob.interval_seconds",
+          "detail": "def interval_seconds(self) -> int:",
+          "score": 910,
+          "summary": "Return the launchd StartInterval value in seconds.",
+          "end_line": 49
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/refresh_job.py",
+          "line": 51,
+          "label": "method LaunchdRefreshJob.to_dict",
+          "detail": "def to_dict(self) -> dict[str, Any]:",
+          "score": 940,
+          "summary": "Return a JSON-serializable representation of the refresh job.",
+          "end_line": 68
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/refresh_job.py",
+          "line": 71,
+          "label": "function build_launchd_refresh_job",
+          "detail": "def build_launchd_refresh_job(",
+          "score": 940,
+          "summary": "Build a launchd job definition for recurring incremental scans.",
+          "end_line": 137
+        }
+      ]
+    },
+    {
+      "query": "atomically publishes a full replacement catalog",
+      "expected_symbol": "publish_catalog",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.981,
+      "hits": []
+    },
+    {
+      "query": "atomically publishes a full replacement catalog",
+      "expected_symbol": "publish_catalog",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 18.966,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/catalog_store.py",
+          "line": 217,
+          "label": "method CatalogStore.publish_catalog",
+          "detail": "def publish_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:",
+          "score": 850,
+          "summary": "Build, validate, and atomically publish a complete catalog.",
+          "end_line": 284
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/catalog_store.py",
+          "line": 286,
+          "label": "method CatalogStore.write_catalog",
+          "detail": "def write_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:",
+          "score": 1020,
+          "summary": "Persist a full catalog.",
+          "end_line": 307
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/cataloger.py",
+          "line": 36,
+          "label": "function build_catalog",
+          "detail": "def build_catalog(",
+          "score": 1030,
+          "summary": "Build or refresh a repository catalog.",
+          "end_line": 142
+        }
+      ]
+    },
+    {
+      "query": "atomically publishes a full replacement catalog preserves usage history write lock file replacement",
+      "expected_symbol": "publish_catalog",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 3.74,
+      "hits": []
+    },
+    {
+      "query": "atomically publishes a full replacement catalog preserves usage history write lock file replacement",
+      "expected_symbol": "publish_catalog",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 24.81,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/catalog_store.py",
+          "line": 217,
+          "label": "method CatalogStore.publish_catalog",
+          "detail": "def publish_catalog(self, analyses: Iterable[FileAnalysis], metadata: dict[str, str]) -> None:",
+          "score": 780,
+          "summary": "Build, validate, and atomically publish a complete catalog.",
+          "end_line": 284
+        }
+      ]
+    },
+    {
+      "query": "write private JSON with owner permissions",
+      "expected_symbol": "private_json",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.908,
+      "hits": []
+    },
+    {
+      "query": "write private JSON with owner permissions",
+      "expected_symbol": "private_json",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 14.351,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/integrations.py",
+          "line": 41,
+          "label": "function private_json",
+          "detail": "def private_json(path: Path, payload: dict[str, Any]) -> None:",
+          "score": 760,
+          "summary": "Atomically write private JSON with owner-only permissions.",
+          "end_line": 56
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/agent_execution.py",
+          "line": 64,
+          "label": "function _native",
+          "detail": "def _native(",
+          "score": 990,
+          "summary": "",
+          "end_line": 127
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/agent_execution.py",
+          "line": 221,
+          "label": "function execute_stdin",
+          "detail": "def execute_stdin(name: str, binary: str, *, timeout_seconds: int = 300) -> int:",
+          "score": 1050,
+          "summary": "Read a private adapter request and return a private task record.",
+          "end_line": 230
+        }
+      ]
+    },
+    {
+      "query": "terminate process group on timeout",
+      "expected_symbol": "run_private",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.274,
+      "hits": []
+    },
+    {
+      "query": "terminate process group on timeout",
+      "expected_symbol": "run_private",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 10.331,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/agent_execution.py",
+          "line": 18,
+          "label": "function run_private",
+          "detail": "def run_private(",
+          "score": 880,
+          "summary": "Run a private child process and terminate its process group on timeout.",
+          "end_line": 55
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/cataloger.py",
+          "line": 569,
+          "label": "function _git_head",
+          "detail": "def _git_head(repo_root: Path) -> str:",
+          "score": 1060,
+          "summary": "",
+          "end_line": 584
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/cataloger.py",
+          "line": 587,
+          "label": "function _git_status_fingerprint",
+          "detail": "def _git_status_fingerprint(repo_root: Path) -> str:",
+          "score": 1060,
+          "summary": "",
+          "end_line": 626
+        }
+      ]
+    },
+    {
+      "query": "normalize raw provider usage cache reads",
+      "expected_symbol": "normalize_usage",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.68,
+      "hits": []
+    },
+    {
+      "query": "normalize raw provider usage cache reads",
+      "expected_symbol": "normalize_usage",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 30.978,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/measured_usage.py",
+          "line": 21,
+          "label": "function normalize_usage",
+          "detail": "def normalize_usage(provider: str, usage: dict) -> dict[str, int | None]:",
+          "score": 690,
+          "summary": "Normalize raw usage, including cache reads in total input tokens.",
+          "end_line": 51
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/usage_adapters.py",
+          "line": 54,
+          "label": "function parse_agent_usage",
+          "detail": "def parse_agent_usage(name: str, text: str) -> AgentUsage:",
+          "score": 950,
+          "summary": "Read verified native event shapes without inferring missing usage.",
+          "end_line": 138
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/catalog_store.py",
+          "line": 48,
+          "label": "method CatalogStore.__init__",
+          "detail": "def __init__(self, database_path: Path, *, reuse_connection: bool = False) -> None:",
+          "score": 990,
+          "summary": "Initialize a SQLite catalog store.",
+          "end_line": 70
+        }
+      ]
+    },
+    {
+      "query": "resolve named workspace repositories",
+      "expected_symbol": "resolve_workspace_repos",
+      "mode": "exact_phrase",
+      "hit_at_3": false,
+      "elapsed_ms": 2.982,
+      "hits": []
+    },
+    {
+      "query": "resolve named workspace repositories",
+      "expected_symbol": "resolve_workspace_repos",
+      "mode": "keyword_recovery",
+      "hit_at_3": true,
+      "elapsed_ms": 22.879,
+      "hits": [
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/benchmark_suite.py",
+          "line": 132,
+          "label": "function save_benchmark_suite_config",
+          "detail": "def save_benchmark_suite_config(",
+          "score": 910,
+          "summary": "Persist a named benchmark suite.",
+          "end_line": 215
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/workspace_config.py",
+          "line": 121,
+          "label": "function resolve_workspace_repos",
+          "detail": "def resolve_workspace_repos(",
+          "score": 920,
+          "summary": "Resolve repositories from explicit paths and an optional named workspace.",
+          "end_line": 156
+        },
+        {
+          "kind": "symbol",
+          "path": "src/code_intel/workspace_config.py",
+          "line": 16,
+          "label": "class WorkspaceConfig",
+          "detail": "class WorkspaceConfig:",
+          "score": 975,
+          "summary": "Named group of repository roots used by workspace commands.",
+          "end_line": 27
+        }
+      ]
+    }
+  ],
+  "limitation": "Small crafted regression set; not a blinded or representative retrieval benchmark"
+}

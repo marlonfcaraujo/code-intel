@@ -8,6 +8,7 @@ from typing import Any
 
 from code_intel.catalog_store import CatalogStore
 from code_intel.lookup import lookup
+from code_intel.query_recovery import QUERY_GUIDANCE
 from code_intel.savings import estimate_saved_tokens_for_context_pack
 from code_intel.secret_filter import redact_source_text
 from code_intel.workspace import workspace_lookup
@@ -308,6 +309,8 @@ def context_pack_to_dict(pack: ContextPack, *, compact: bool = False, include_hi
         ]
     if compact:
         payload["repo_labels"] = repo_labels
+    if not pack.snippets:
+        payload["guidance"] = QUERY_GUIDANCE
     return payload
 
 

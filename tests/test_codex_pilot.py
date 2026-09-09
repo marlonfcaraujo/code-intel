@@ -57,10 +57,11 @@ def test_codex_settings_disable_external_tools_and_scope_approvals(tmp_path):
     assert not any("tools.context_pack.approval_mode" in arg for arg in command)
 
 
-def test_published_report_totals_match_per_run_receipts():
+@pytest.mark.parametrize("filename", ["codex-pilot-2026-09-09.json", "codex-recovery-2026-09-09.json"])
+def test_published_report_totals_match_per_run_receipts(filename):
     import json
 
-    path = Path(__file__).parents[1] / "docs" / "benchmarks" / "codex-pilot-2026-09-09.json"
+    path = Path(__file__).parents[1] / "docs" / "benchmarks" / filename
     report = json.loads(path.read_text())
     for arm in ("baseline", "code_intel"):
         receipts = [row for row in report["receipts"] if row["arm"] == arm]

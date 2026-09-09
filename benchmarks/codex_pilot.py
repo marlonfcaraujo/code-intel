@@ -24,7 +24,9 @@ from code_intel.cataloger import build_catalog
 from code_intel.context_pack import build_context_pack
 from code_intel.integrations import private_json
 from code_intel.lookup import lookup as catalog_lookup
+from code_intel.lookup import lookup_to_dict
 from code_intel.measured_usage import measured_report
+from code_intel.query_recovery import CONTEXT_DESCRIPTION, LOOKUP_DESCRIPTION
 from code_intel.usage_adapters import parse_agent_usage
 
 TASKS = {
@@ -122,6 +124,11 @@ def make_server(root: Path, arm: str, audit_path: Path):
                         "tool": tool,
                         "elapsed_ms": round((time.monotonic() - started) * 1000, 3),
                         "result_bytes": len(json.dumps(result).encode()),
+                        "result_count": len(result)
+                        if isinstance(result, list)
+                        else result.get("count")
+                        if isinstance(result, dict)
+                        else None,
                     }
                 )
                 + "\n"
@@ -171,22 +178,18 @@ def make_server(root: Path, arm: str, audit_path: Path):
     if arm == "code_intel":
         store = CatalogStore.for_repo(root)
 
-        @server.tool(annotations=read_only)
-        def lookup(query: str) -> list[dict[str, Any]]:
-            """Find ranked source symbols and files by name or text using code-intel."""
+        @server.tool(annotations=read_only, description=LOOKUP_DESCRIPTION)
+        def lookup(query: str) -> dict[str, Any]:
+            """Find source with lexical recovery, summaries and bounded excerpts."""
             started = time.monotonic()
             result = catalog_lookup(root, store, query, limit=10, include_tests=False)
-            return record(
-                "lookup",
-                started,
-                [
-                    {"path": hit.path, "line": hit.line, "label": hit.label, "detail": hit.detail}
-                    for hit in result.hits
-                    if hit.path.startswith("src/")
-                ],
-            )
+            payload = lookup_to_dict(result, store=store)
+            payload.pop("repo_path")
+            payload["hits"] = [hit for hit in payload["hits"] if hit["path"].startswith("src/")]
+            payload["count"] = len(payload["hits"])
+            return record("lookup", started, payload)
 
-        @server.tool(annotations=read_only)
+        @server.tool(annotations=read_only, description=CONTEXT_DESCRIPTION)
         def context_pack(query: str) -> list[dict[str, Any]]:
             """Get ranked bounded source snippets for a symbol or question using code-intel."""
             started = time.monotonic()
@@ -271,7 +274,9 @@ def codex_arguments(root: Path, arm: str, audit: Path, model: str) -> list[str]:
 def run(args: argparse.Namespace) -> None:
     """Run the pilot and retain transcripts privately for verification."""
     repo = args.repo.resolve()
-    revision = run_private(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
+    revision = run_private(
+        ["git", "rev-parse", "--verify", "--end-of-options", args.revision + "^{commit}"], cwd=repo
+    ).stdout.strip()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     records = []
@@ -343,7 +348,7 @@ def run(args: argparse.Namespace) -> None:
                         "model": args.model,
                         "revision": revision,
                         "prompt_id": task,
-                        "config_id": "source-only-pilot-v1",
+                        "config_id": "source-only-pilot-v2-keyword-recovery",
                         "elapsed_ms": elapsed,
                         "success": success,
                         "native_exit_code": result.returncode,
@@ -361,6 +366,7 @@ def run(args: argparse.Namespace) -> None:
                             "tool_calls": len(tool_events),
                             "tool_names": [event["tool"] for event in tool_events],
                             "tool_result_bytes": sum(item["result_bytes"] for item in audits),
+                            "specialized_calls": [item for item in audits if item["tool"] in EXTRA_TOOLS],
                             "usage": usage.calls[0]["usage"],
                         }
                     )
@@ -375,6 +381,7 @@ def run(args: argparse.Namespace) -> None:
             "recorded_at": datetime.now(UTC).isoformat(),
             "repetitions": args.repeat,
             "tool_trace_verified": True,
+            "harness_variant": "keyword-recovery-v1",
             "receipts": receipts,
             "cache_condition": "uncontrolled; fresh sessions do not guarantee cold cache",
         }
@@ -393,6 +400,7 @@ def main() -> None:
     server.add_argument("--audit", type=Path, required=True)
     pilot = commands.add_parser("run")
     pilot.add_argument("--repo", type=Path, default=Path.cwd())
+    pilot.add_argument("--revision", default="HEAD", help="Pin source independently of the updated harness")
     pilot.add_argument("--output", type=Path, required=True)
     pilot.add_argument("--model", default="gpt-5.6-luna")
     pilot.add_argument("--repeat", type=int, default=2)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- Recover empty sentence lookups with bounded lexical keywords, ranked using
+  symbol metadata and indexed body evidence. Preserve exact-identifier behavior
+  and explicit symbol/text search controls.
+- Return docstring summaries and optional bounded indexed excerpts from MCP
+  lookup, with guidance when no result is found.
+- Clarify lexical query guidance in MCP tools and managed agent instructions.
+- Add retrieval regression fixtures and a second public Codex pilot, retaining
+  the original report and showing task-specific improvements and regressions.
+
 ## 0.2.1
 
 - Fix private native usage imports failing when opening their output file.

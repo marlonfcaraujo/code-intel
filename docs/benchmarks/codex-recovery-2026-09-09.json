@@ -1,0 +1,495 @@
+{
+  "schema_version": 1,
+  "paired_tasks": 6,
+  "arms": {
+    "baseline": {
+      "input_tokens": {
+        "total": 457781,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 2344,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 293888,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 109941,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 163893,
+        "available_tasks": 6
+      }
+    },
+    "code_intel": {
+      "input_tokens": {
+        "total": 354013,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 2046,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 204288,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 101282,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 149725,
+        "available_tasks": 6
+      }
+    }
+  },
+  "median_paired_reduction_percent": {
+    "input_tokens": {
+      "value": -2.0409209853403802,
+      "available_pairs": 6
+    },
+    "output_tokens": {
+      "value": 5.046302223360218,
+      "available_pairs": 6
+    },
+    "elapsed_ms": {
+      "value": 6.555019255544067,
+      "available_pairs": 6
+    }
+  },
+  "experimental_controls": "caller_supplied",
+  "tool_policy_independently_verified": false,
+  "source_revision": "f675a1ddc78614ca4131ffc38396b55e4cf615ba",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "recorded_at": "2026-09-09T18:40:06.727514+00:00",
+  "repetitions": 2,
+  "tool_trace_verified": true,
+  "harness_variant": "keyword-recovery-v1",
+  "receipts": [
+    {
+      "task": "integration_defaults",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 14979,
+      "index_ms": 0,
+      "tool_calls": 2,
+      "tool_names": [
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 10108,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 54451,
+        "output_tokens": 289,
+        "cached_input_tokens": 30720,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 13803,
+      "index_ms": 897.132,
+      "tool_calls": 4,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 17764,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 21.054,
+          "result_bytes": 4292,
+          "result_count": 4
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 24.32,
+          "result_bytes": 5146,
+          "result_count": 10
+        }
+      ],
+      "usage": {
+        "input_tokens": 60392,
+        "output_tokens": 327,
+        "cached_input_tokens": 45056,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 18910,
+      "index_ms": 956.691,
+      "tool_calls": 4,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "lookup",
+        "read_file"
+      ],
+      "tool_result_bytes": 17095,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 23.445,
+          "result_bytes": 6280,
+          "result_count": 3
+        }
+      ],
+      "usage": {
+        "input_tokens": 58004,
+        "output_tokens": 322,
+        "cached_input_tokens": 20736,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 18005,
+      "index_ms": 0,
+      "tool_calls": 2,
+      "tool_names": [
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 9855,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 52905,
+        "output_tokens": 290,
+        "cached_input_tokens": 32000,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 21790,
+      "index_ms": 0,
+      "tool_calls": 7,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "list_files",
+        "search_text",
+        "read_file",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 25724,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 110506,
+        "output_tokens": 544,
+        "cached_input_tokens": 76288,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 16005,
+      "index_ms": 859.266,
+      "tool_calls": 6,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "search_text"
+      ],
+      "tool_result_bytes": 16160,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 8.434,
+          "result_bytes": 2463,
+          "result_count": 1
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 10.291,
+          "result_bytes": 981,
+          "result_count": 3
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 9.34,
+          "result_bytes": 381,
+          "result_count": 1
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 21.386,
+          "result_bytes": 4844,
+          "result_count": 6
+        }
+      ],
+      "usage": {
+        "input_tokens": 57855,
+        "output_tokens": 368,
+        "cached_input_tokens": 41984,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 20760,
+      "index_ms": 986.841,
+      "tool_calls": 3,
+      "tool_names": [
+        "search_text",
+        "lookup",
+        "read_file"
+      ],
+      "tool_result_bytes": 12760,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 28.813,
+          "result_bytes": 4292,
+          "result_count": 4
+        }
+      ],
+      "usage": {
+        "input_tokens": 58031,
+        "output_tokens": 293,
+        "cached_input_tokens": 37888,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 18077,
+      "index_ms": 0,
+      "tool_calls": 4,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 18603,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 61445,
+        "output_tokens": 321,
+        "cached_input_tokens": 38912,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 15364,
+      "index_ms": 0,
+      "tool_calls": 4,
+      "tool_names": [
+        "list_files",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 13099,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 51699,
+        "output_tokens": 365,
+        "cached_input_tokens": 23552,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 14556,
+      "index_ms": 728.14,
+      "tool_calls": 4,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file"
+      ],
+      "tool_result_bytes": 16788,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 7.441,
+          "result_bytes": 2681,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 20.486,
+          "result_bytes": 6280,
+          "result_count": 3
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 11.25,
+          "result_bytes": 317,
+          "result_count": 0
+        }
+      ],
+      "usage": {
+        "input_tokens": 59622,
+        "output_tokens": 360,
+        "cached_input_tokens": 36096,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 17248,
+      "index_ms": 741.787,
+      "tool_calls": 7,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "search_text",
+        "lookup"
+      ],
+      "tool_result_bytes": 19506,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 20.693,
+          "result_bytes": 6640,
+          "result_count": 3
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 19.598,
+          "result_bytes": 303,
+          "result_count": 0
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 12.18,
+          "result_bytes": 2463,
+          "result_count": 1
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 13.806,
+          "result_bytes": 381,
+          "result_count": 1
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 11.86,
+          "result_bytes": 515,
+          "result_count": 1
+        }
+      ],
+      "usage": {
+        "input_tokens": 60109,
+        "output_tokens": 376,
+        "cached_input_tokens": 22528,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 21726,
+      "index_ms": 0,
+      "tool_calls": 7,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "read_file",
+        "search_text",
+        "search_text",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 27546,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 126775,
+        "output_tokens": 535,
+        "cached_input_tokens": 92416,
+        "cache_write_tokens": 0
+      }
+    }
+  ],
+  "cache_condition": "uncontrolled; fresh sessions do not guarantee cold cache",
+  "codex_cli_version": "0.149.1",
+  "source_repository": "https://github.com/marlonfcaraujo/code-intel",
+  "interpretation": "Small follow-up pilot: improvements are concentrated in catalog-publication tasks; typical paired input did not improve.",
+  "specialized_tool_usage": {
+    "treatment_runs": 6,
+    "runs_with_nonempty_specialized_results": 6,
+    "calls": 16,
+    "nonempty_calls": 14,
+    "context_pack_calls": 0
+  },
+  "index_build_ms_total": 5169.857
+}

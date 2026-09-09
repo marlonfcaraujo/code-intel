@@ -239,8 +239,15 @@ def lookup_tool(
     context_lines: int = 0,
     source_first: bool = False,
     include_tests: bool = True,
+    include_context: bool = True,
 ) -> dict[str, Any]:
-    """Search symbols and source text together."""
+    """Find source using an identifier or 2-4 distinctive keywords, not semantic questions.
+
+    Sentence misses use bounded keyword recovery. Results carry signatures and
+    docstring summaries; include_context adds excerpts for the first three
+    symbols, capped at 40 lines and 6000 characters each. Use context_pack for
+    more body context. No-match responses include query guidance.
+    """
     repo_root = Path(repo_path).resolve()
     store = _require_catalog(repo_root)
     result = lookup(
@@ -267,7 +274,7 @@ def lookup_tool(
         result_count=len(result.hits),
         selected_paths=lookup_selected_paths(result),
     )
-    return lookup_to_dict(result)
+    return lookup_to_dict(result, store=store if include_context else None)
 
 
 def context_pack_tool(
@@ -285,7 +292,10 @@ def context_pack_tool(
     compact: bool = True,
     include_hits: bool = False,
 ) -> dict[str, Any]:
-    """Return compact source context for a lookup query.
+    """Return bounded declaration/docstring/body context for an identifier or 2-4 keywords.
+
+    Prefer concise lexical queries; this is not semantic search. Sentence
+    misses use bounded keyword recovery before returning no-match guidance.
 
     Args:
         query: Symbol, file stem, or text fragment to search.

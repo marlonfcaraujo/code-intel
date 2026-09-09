@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
 from code_intel.catalog_store import CatalogStore
 from code_intel.models import TextMatch
+from code_intel.query_recovery import QUERY_GUIDANCE, query_terms, rank_keyword_candidates
 from code_intel.symbol_search import search_symbols
 
 LookupKind = Literal["symbol", "file", "text"]
@@ -47,6 +48,7 @@ class LookupHit:
         detail: Signature, line content, or short supporting detail.
         score: Lower scores are ranked earlier.
         end_line: Optional one-based ending line for symbol hits.
+        summary: Bounded indexed docstring summary for symbol hits.
     """
 
     kind: LookupKind
@@ -56,6 +58,7 @@ class LookupHit:
     detail: str
     score: int
     end_line: int | None = None
+    summary: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +72,7 @@ class LookupResult:
         files: Number of file hits considered.
         text_matches: Number of text hits considered.
         hits: Ranked combined hits.
+        recovery_terms: Lexical terms tried only after the original query missed.
     """
 
     query: str
@@ -77,6 +81,7 @@ class LookupResult:
     files: int
     text_matches: int
     hits: list[LookupHit]
+    recovery_terms: tuple[str, ...] = ()
 
 
 def lookup(
@@ -98,7 +103,8 @@ def lookup(
     Args:
         repo_path: Repository path being searched.
         store: Catalog store for the repository.
-        query: Symbol or source text query.
+        query: Prefer an identifier or short fragment. Sentences use a bounded
+            keyword fallback only after exact/phrase lookup misses.
         limit: Maximum combined hits to return.
         symbol_limit: Optional maximum symbol hits to consider. Use 0 to skip
             symbol lookup.
@@ -111,7 +117,8 @@ def lookup(
         include_tests: Whether test files may be returned as lookup hits.
         include_fuzzy_symbols: Whether to run broader symbol signature/docstring
             scans after exact/prefix symbol variants miss. Defaults to false for
-            source-first, text-disabled lookups and true otherwise.
+            source-first, text-disabled lookups and true otherwise. Explicit
+            false also disables keyword recovery.
 
     Returns:
         Ranked combined lookup response.
@@ -183,6 +190,20 @@ def lookup(
         text_matches=text_matches,
         limit=bounded_limit,
     )
+    recovery_terms: list[str] = []
+    if not hits and bounded_symbol_limit and include_fuzzy_symbols is not False:
+        recovery_terms = query_terms(stripped)
+        if recovery_terms:
+            candidates = store.keyword_symbol_candidates(recovery_terms, include_body=bounded_text_limit > 0)
+            candidates = _filter_rows_for_tests(candidates, include_tests=include_tests)
+            recovered = rank_keyword_candidates(candidates, recovery_terms)[: min(bounded_limit, bounded_symbol_limit)]
+            hits = [
+                replace(
+                    _hit_from_symbol(stripped, {**row, "summary": row["doc"]}, index=index), score=row["recovery_score"]
+                )
+                for index, row in enumerate(recovered)
+            ]
+            symbol_rows = recovered
     return LookupResult(
         query=stripped,
         repo_path=str(Path(repo_path).resolve()),
@@ -190,6 +211,7 @@ def lookup(
         files=len(file_rows),
         text_matches=len(text_matches),
         hits=hits,
+        recovery_terms=tuple(recovery_terms),
     )
 
 
@@ -205,16 +227,18 @@ def lookup_selected_paths(result: LookupResult) -> set[str]:
     return {hit.path for hit in result.hits if hit.path}
 
 
-def lookup_to_dict(result: LookupResult) -> dict[str, Any]:
+def lookup_to_dict(result: LookupResult, *, store: CatalogStore | None = None) -> dict[str, Any]:
     """Serialize a lookup result to dictionaries.
 
     Args:
         result: Lookup result to serialize.
+        store: Include indexed excerpts for the first three symbol hits when
+            supplied, bounded to 40 lines and 6000 characters per excerpt.
 
     Returns:
         JSON-serializable lookup payload.
     """
-    return {
+    payload = {
         "query": result.query,
         "repo_path": result.repo_path,
         "symbols": result.symbols,
@@ -229,10 +253,35 @@ def lookup_to_dict(result: LookupResult) -> dict[str, Any]:
                 "label": hit.label,
                 "detail": hit.detail,
                 "score": hit.score,
+                "summary": hit.summary,
+                "end_line": hit.end_line,
             }
             for hit in result.hits
         ],
     }
+    if result.recovery_terms:
+        payload["recovery"] = {
+            "strategy": "bounded_keywords",
+            "terms": list(result.recovery_terms),
+            "max_candidates": 320,
+        }
+    if not result.hits:
+        payload["guidance"] = QUERY_GUIDANCE
+    if store is not None and store.supports_text_index():
+        for row in payload["hits"][:3]:
+            if row["kind"] != "symbol":
+                continue
+            start = max(1, row["line"] - 2)
+            end = min(row["end_line"] or row["line"], start + 39)
+            lines = store.source_line_range(row["path"], start, end)
+            content = "\n".join(lines.get(number, "") for number in range(start, end + 1))
+            row["context"] = {
+                "start_line": start,
+                "end_line": end,
+                "content": content[:6000],
+                "truncated": len(content) > 6000 or (row["end_line"] or end) > end,
+            }
+    return payload
 
 
 def _rank_hits(
@@ -404,6 +453,7 @@ def _hit_from_symbol(query: str, row: dict[str, Any], *, index: int) -> LookupHi
         detail=signature,
         score=score,
         end_line=int(row["end_line"]) if row.get("end_line") is not None else None,
+        summary=str(row.get("summary", ""))[:500],
     )
 
 
