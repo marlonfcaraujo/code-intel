@@ -20,6 +20,9 @@
   <img alt="MCP ready" src="https://img.shields.io/badge/MCP-ready-4B5563">
   <img alt="No external service" src="https://img.shields.io/badge/external%20service-not%20required-15803D">
   <img alt="Status" src="https://img.shields.io/badge/status-local%20tool-0F172A">
+  <a href="CONTRIBUTING.md"><img alt="Contributing Guide" src="https://img.shields.io/badge/Contributing-Read%20the%20Guide-2C67AF"></a>
+  <a href="SUPPORT.md"><img alt="Support" src="https://img.shields.io/badge/Support-Get%20Help-4F46E5"></a>
+  <a href="ROADMAP.md"><img alt="Roadmap" src="https://img.shields.io/badge/Roadmap-Track%20Progress-0F766E"></a>
 </p>
 
 `code-intel` builds a local SQLite catalog for a repository, then answers the
@@ -61,6 +64,12 @@ agent avoided loading.
 
 ## Installation
 
+### Prerequisites
+
+- Python 3.12+
+- [`uv`](https://github.com/astral-sh/uv)
+- Git
+
 ### Run from a source checkout
 
 Use this during development or before publishing the package:
@@ -78,6 +87,8 @@ command works from any current directory:
 uv run --project /path/to/code-intel code-intel scan /path/to/repo
 ```
 
+This is the safest way while developing the tool locally.
+
 ### Install as a local tool
 
 Install the CLI from a local checkout when you want `code-intel` available on
@@ -94,6 +105,21 @@ Reinstall after local changes:
 uv tool install --force /path/to/code-intel
 ```
 
+### Install as a local command
+
+Use this when you want one stable command available from any shell:
+
+```bash
+uv tool install /path/to/code-intel
+code-intel --version
+```
+
+Run this once per checkout after updates:
+
+```bash
+code-intel --help
+```
+
 ### Install MCP support
 
 MCP support is optional:
@@ -105,14 +131,14 @@ uv sync --extra mcp --group dev
 
 ## Quickstart
 
-Catalog any repository:
+### 1) Catalog any repository
 
 ```bash
 code-intel scan /path/to/repo
 code-intel workspace-scan --workspace backend-ui --incremental --skip-unchanged-meta --json
 ```
 
-Search the generated catalog:
+### 2) Search for symbols and references
 
 ```bash
 code-intel lookup --repo /path/to/repo get_database_url
@@ -124,7 +150,7 @@ code-intel repo-outline --repo /path/to/repo
 code-intel workspace-outline --workspace backend-ui
 ```
 
-Check impact before editing a file:
+### 3) Check impact before editing a file
 
 ```bash
 code-intel explain --repo /path/to/repo src/app/service.py
@@ -132,11 +158,27 @@ code-intel tests --repo /path/to/repo src/app/service.py
 code-intel risk --repo /path/to/repo --top 20
 ```
 
-Show the usage and estimated savings report:
+### 4) Show usage and estimated savings
 
 ```bash
 code-intel savings --repo /path/to/repo
 ```
+
+## Open Source Contributor Docs
+
+- [Contributing](CONTRIBUTING.md): setup and contribution expectations
+- [Code of Conduct](CODE_OF_CONDUCT.md): community standards
+- [Security policy](SECURITY.md): how to report vulnerabilities
+- [Support](SUPPORT.md): how to get help and where to ask questions
+- [Issue templates](.github/ISSUE_TEMPLATE): structured bug reports and feature requests
+- [Roadmap](ROADMAP.md): current and upcoming priorities
+
+If you want project visibility in one place, the README includes:
+
+- Install and MCP setup
+- Search and analysis workflows
+- Safety and output expectations
+- Contribution and community links
 
 ## What It Creates
 
@@ -258,11 +300,11 @@ uv run code-intel install-refresh-job \
   --label com.code-intel.refresh.dev
 ```
 
-The command writes a runner under `~/.code-intel/launchd/` and a plist under
-`~/Library/LaunchAgents/`. Load it with:
+The command writes a runner under `$HOME/.code-intel/launchd/` and a plist under
+`$HOME/Library/LaunchAgents/` on macOS. Load it with:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.code-intel.refresh.dev.plist
+launchctl load $HOME/Library/LaunchAgents/com.code-intel.refresh.dev.plist
 launchctl start com.code-intel.refresh.dev
 ```
 
@@ -400,7 +442,7 @@ code-intel workspace-benchmark --workspace backend-ui --query PrimaryPanel --que
 code-intel workflow-benchmark --workspace backend-ui --query PrimaryPanel --query SERVICE_CONFIGS
 ```
 
-Workspace files are JSON under `~/.code-intel/workspaces/` by default.
+Workspace files are JSON under `$HOME/.code-intel/workspaces/` by default.
 `workspace-scan` refreshes all selected repositories in one Python process,
 can scan independent repositories concurrently with `--repo-workers`, and accepts
 `--skip-unchanged-meta` for frequent no-change refreshes.
@@ -604,12 +646,12 @@ code-intel benchmark-suite-run backend-ui --json --summary
 code-intel benchmark-suite-history backend-ui --limit 5
 ```
 
-Suite files are JSON under `~/.code-intel/benchmark-suites/` by default. A suite
+Suite files are JSON under `$HOME/.code-intel/benchmark-suites/` by default. A suite
 can include both a single-repo symbol comparison set for catalog vs jCodemunch
 and a multi-repo workflow set for backend/UI agent context quality. Suite runs
 include a scorecard with average median latency, source-first/test-first counts,
 provider speedup, returned-token totals, and estimated avoided context. History
-records are JSONL under `~/.code-intel/benchmark-runs/` and include deltas after
+records are JSONL under `$HOME/.code-intel/benchmark-runs/` and include deltas after
 the first recorded run.
 
 ### `savings`
