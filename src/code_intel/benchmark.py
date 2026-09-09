@@ -10,7 +10,6 @@ from time import perf_counter
 from typing import Literal
 
 from code_intel.catalog_store import CatalogStore
-from code_intel.provider_config import DEFAULT_BENCHMARK_PROVIDERS, ProviderName
 from code_intel.context_pack import (
     ContextPack,
     build_context_pack,
@@ -19,6 +18,7 @@ from code_intel.context_pack import (
 )
 from code_intel.jcodemunch_provider import get_jcodemunch_catalog_stats
 from code_intel.lookup import lookup, lookup_selected_paths, lookup_to_dict
+from code_intel.provider_config import DEFAULT_BENCHMARK_PROVIDERS, ProviderName
 from code_intel.savings import (
     estimate_saved_tokens_for_paths,
     selected_paths_from_rows,
