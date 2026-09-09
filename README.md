@@ -25,6 +25,24 @@
   <a href="ROADMAP.md"><img alt="Roadmap" src="https://img.shields.io/badge/Roadmap-Track%20Progress-0F766E"></a>
 </p>
 
+## TL;DR
+
+`code-intel` is a local map of a codebase for coding agents and engineers. It
+scans a repository into SQLite, indexes files, symbols, and dependencies, then
+answers targeted questions with ranked results and bounded source snippets.
+That helps agents read less context and shows how much context a lookup likely
+avoided.
+
+How it works: `scan` builds or refreshes `.code-intel/catalog.sqlite`; commands
+query that local catalog for lookup, references, tests, risk, and context; the
+optional MCP server exposes the same capabilities to compatible agents. No
+hosted service or background daemon is required.
+
+```bash
+uv run code-intel scan /path/to/repo
+uv run code-intel savings --repo /path/to/repo
+```
+
 `code-intel` builds a local SQLite catalog for a repository, then answers the
 questions coding agents usually waste time and tokens trying to discover by
 scanning files.
@@ -128,6 +146,23 @@ MCP support is optional:
 cd /path/to/code-intel
 uv sync --extra mcp --group dev
 ```
+
+### Updating an existing installation
+
+After pulling the desired branch in your code-intel checkout:
+
+```bash
+uv sync --extra mcp --group dev --frozen
+uv run code-intel upgrade-config --dry-run
+uv run code-intel upgrade-config
+uv run code-intel --version
+```
+
+Configuration upgrades retain user values and unknown fields, add missing
+defaults, and back up changed files. Existing catalogs and usage history stay
+local. Reinstall separately installed CLI tools and restart active MCP connections
+to load the updated package. See [Upgrading](docs/UPGRADING.md) for catalog
+migrations, rollback and managed repository instructions.
 
 ## Quickstart
 
@@ -665,6 +700,36 @@ code-intel savings --repo /path/to/repo --json
 
 The estimate compares the cataloged repository size to the smaller set of files
 returned by targeted lookups. It is directional, not billing-grade.
+
+#### Measured task comparisons
+
+The savings estimate above models broad repository reads for every lookup. It
+does not measure model input, output, or caching and cannot establish billed
+token savings. For actual usage, compare paired tasks using provider records:
+
+```bash
+uv run code-intel measured-report /private/path/tasks.jsonl
+uv run code-intel measured-run /private/path/manifest.json --repeat 3 --timeout 300
+```
+
+Both commands emit aggregate JSON containing total input, output, cached input,
+cache writes, model calls, success counts, elapsed time, and median paired
+reductions. Input totals include cache reads; do not add cached input again.
+Unknown metrics remain `null`, with availability counts alongside them.
+See [Measured usage](docs/MEASURED_USAGE.md) for the adapter contract and experimental
+controls. No measured savings claim is published until real paired runs exist.
+
+Register a native usage adapter with one command:
+
+```bash
+uv run code-intel integrations add codex
+uv run code-intel integrations doctor codex
+```
+
+Hermes, OpenCode, and Claude Code also have native usage adapters (`hermes`,
+`opencode`, `claude`). Paseo can be registered, but complete task usage must come
+from its underlying provider. Registration checks CLI compatibility; a paired
+experiment additionally needs a task definition, tool preparation, and a grader.
 
 ### `doctor`
 

@@ -19,6 +19,7 @@ from code_intel.benchmark import (
     workflow_report_to_dict,
     workflow_report_to_summary_dict,
 )
+from code_intel.config_upgrade import migrate_config, update_config
 from code_intel.symbol_search import ProviderName
 
 BENCHMARK_SUITE_CONFIG_DIRNAME = "benchmark-suites"
@@ -210,7 +211,7 @@ def save_benchmark_suite_config(
         max_lines_per_file=max(1, min(max_lines_per_file, 500)),
         source_first=source_first,
     )
-    path.write_text(json.dumps(_config_payload(config), indent=2, sort_keys=True) + "\n")
+    update_config(path, "benchmark-suites", _config_payload(config))
     return config
 
 
@@ -242,7 +243,7 @@ def load_benchmark_suite_config(
         raise ValueError(f"Benchmark suite configuration is not valid JSON: {path}") from exc
     if not isinstance(payload, dict):
         raise ValueError(f"Benchmark suite configuration must be a JSON object: {path}")
-    return _config_from_payload(payload, path=path)
+    return _config_from_payload(migrate_config(payload, "benchmark-suites"), path=path)
 
 
 def list_benchmark_suite_configs(*, config_dir: str | Path | None = None) -> list[BenchmarkSuiteConfig]:

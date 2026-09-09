@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from code_intel.config_upgrade import migrate_config, update_config
+
 WORKSPACE_CONFIG_DIRNAME = "workspaces"
 
 
@@ -62,7 +64,7 @@ def save_workspace_config(
     directory.mkdir(parents=True, exist_ok=True)
     path = workspace_config_path(workspace_name, config_dir=directory)
     config = WorkspaceConfig(name=workspace_name, repos=[str(repo_path) for repo_path in repo_paths], path=str(path))
-    path.write_text(json.dumps({"name": config.name, "repos": config.repos}, indent=2, sort_keys=True) + "\n")
+    update_config(path, "workspaces", {"name": config.name, "repos": config.repos})
     return config
 
 
@@ -90,6 +92,7 @@ def load_workspace_config(name: str, *, config_dir: str | Path | None = None) ->
         raise ValueError(f"Workspace configuration is not valid JSON: {path}") from exc
     if not isinstance(payload, dict):
         raise ValueError(f"Workspace configuration must be a JSON object: {path}")
+    payload = migrate_config(payload, "workspaces")
     repos = payload.get("repos")
     if not isinstance(repos, list) or not repos or not all(isinstance(repo, str) for repo in repos):
         raise ValueError(f"Workspace configuration must contain a non-empty string repos list: {path}")

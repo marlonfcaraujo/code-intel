@@ -16,6 +16,7 @@ from typing import Any
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol, TextLine, TextMatch
 
 DEFAULT_CATALOG_PATH = ".code-intel/catalog.sqlite"
+CATALOG_SCHEMA_VERSION = 1
 SQLITE_PARAMETER_CHUNK_SIZE = 500
 CATALOG_WRITE_LOCK_TIMEOUT_SECONDS = 30.0
 REUSABLE_CONNECTION_OPEN_ATTEMPTS = 3
@@ -118,6 +119,10 @@ class CatalogStore:
     def _open_connection(self) -> sqlite3.Connection:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.database_path)
+        schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
+        if not 0 <= schema_version <= CATALOG_SCHEMA_VERSION:
+            connection.close()
+            raise ValueError("Unsupported catalog schema; upgrade the package before accessing this database")
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -204,6 +209,7 @@ class CatalogStore:
                 """
             )
             self._create_usage_tables(connection)
+            connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
         self._clear_schema_cache()
         self._clear_file_cache()
         self._mark_reusable_state_current()
@@ -1603,6 +1609,8 @@ def _copy_usage_events(source_path: Path, destination_path: Path) -> None:
     connection = sqlite3.connect(destination_path)
     try:
         connection.execute("ATTACH DATABASE ? AS live_catalog", (str(source_path),))
+        if connection.execute("PRAGMA live_catalog.user_version").fetchone()[0] > CATALOG_SCHEMA_VERSION:
+            raise ValueError("Cannot replace a catalog created by a newer package")
         try:
             usage_table = connection.execute(
                 """

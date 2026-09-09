@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from dataclasses import asdict
+from importlib.metadata import version
 from pathlib import Path
 
 from code_intel.agent_notes import install_agent_notes
@@ -36,6 +37,7 @@ from code_intel.benchmark_suite import (
 from code_intel.catalog_store import DEFAULT_CATALOG_PATH, CatalogStore
 from code_intel.cataloger import build_catalog
 from code_intel.change_report import compute_change_report
+from code_intel.config_upgrade import register_upgrade_config
 from code_intel.context_pack import (
     ContextPack,
     build_context_pack,
@@ -46,8 +48,10 @@ from code_intel.context_pack import (
     context_pack_to_dict,
 )
 from code_intel.health import assess_catalog_health
+from code_intel.integrations import register_integrations
 from code_intel.lookup import lookup, lookup_selected_paths, lookup_to_dict
 from code_intel.mcp_server import serve_mcp
+from code_intel.measured_usage import register_measured_usage
 from code_intel.provider_config import resolve_default_benchmark_providers, resolve_default_symbol_provider
 from code_intel.references import (
     ReferenceFileSummary,
@@ -115,7 +119,11 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="code-intel", description="Repository intelligence CLI.")
+    parser.add_argument("--version", action="version", version=f"code-intel {version('code-intel')}")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    register_measured_usage(subparsers)
+    register_integrations(subparsers)
+    register_upgrade_config(subparsers)
 
     scan_parser = subparsers.add_parser("scan", help="Catalog a repository")
     scan_parser.add_argument("repo", nargs="?", default=".", help="Repository path")
