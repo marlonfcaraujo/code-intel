@@ -1,0 +1,600 @@
+{
+  "schema_version": 1,
+  "paired_tasks": 6,
+  "arms": {
+    "baseline": {
+      "input_tokens": {
+        "total": 583636,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 3556,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 431872,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 138972,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 151764,
+        "available_tasks": 6
+      }
+    },
+    "code_intel": {
+      "input_tokens": {
+        "total": 475283,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 2800,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 312576,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 108028,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 162707,
+        "available_tasks": 6
+      }
+    }
+  },
+  "median_paired_reduction_percent": {
+    "input_tokens": {
+      "value": 19.667862739521613,
+      "available_pairs": 6
+    },
+    "output_tokens": {
+      "value": 19.1987625550463,
+      "available_pairs": 6
+    },
+    "elapsed_ms": {
+      "value": 20.80536045661971,
+      "available_pairs": 6
+    }
+  },
+  "experimental_controls": "caller_supplied",
+  "tool_policy_independently_verified": false,
+  "source_revision": "bfae4224fd554d3d7f2c277a4cc092b6ec6af3ae",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "recorded_at": "2026-09-09T19:35:03.598594+00:00",
+  "repetitions": 2,
+  "tool_trace_verified": true,
+  "harness_variant": "function-bm25-v1",
+  "suite": "pytest",
+  "receipts": [
+    {
+      "task": "pytest_cli_flow",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 21514,
+      "index_ms": 0,
+      "tool_calls": 6,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "read_file",
+        "read_file",
+        "read_file",
+        "search_text"
+      ],
+      "tool_result_bytes": 16662,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 56404,
+        "output_tokens": 497,
+        "cached_input_tokens": 39936,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_cli_flow",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 15143,
+      "index_ms": 5120.089,
+      "tool_calls": 7,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 23326,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 8.691,
+          "result_bytes": 1673,
+          "result_count": 4
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 11.806,
+          "result_bytes": 3407,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 21.091,
+          "result_bytes": 4266,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 24.827,
+          "result_bytes": 5425,
+          "result_count": 10
+        }
+      ],
+      "usage": {
+        "input_tokens": 62718,
+        "output_tokens": 410,
+        "cached_input_tokens": 39936,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_item_lifecycle",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 19030,
+      "index_ms": 3991.503,
+      "tool_calls": 10,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "read_file",
+        "read_file",
+        "lookup",
+        "lookup",
+        "read_file"
+      ],
+      "tool_result_bytes": 37646,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 8.789,
+          "result_bytes": 7330,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 14.899,
+          "result_bytes": 6645,
+          "result_count": 9
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 12.867,
+          "result_bytes": 5332,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 11.122,
+          "result_bytes": 4412,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 15.21,
+          "result_bytes": 4107,
+          "result_count": 6
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 12.76,
+          "result_bytes": 2321,
+          "result_count": 4
+        }
+      ],
+      "usage": {
+        "input_tokens": 87801,
+        "output_tokens": 616,
+        "cached_input_tokens": 59136,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_item_lifecycle",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 23023,
+      "index_ms": 0,
+      "tool_calls": 10,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "read_file",
+        "read_file",
+        "read_file",
+        "search_text",
+        "search_text",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 38237,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 124462,
+        "output_tokens": 745,
+        "cached_input_tokens": 93696,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_fixture_teardown",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 19827,
+      "index_ms": 0,
+      "tool_calls": 5,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 16187,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 79904,
+        "output_tokens": 493,
+        "cached_input_tokens": 61184,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_fixture_teardown",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 16265,
+      "index_ms": 3968.799,
+      "tool_calls": 5,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 25444,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 18.453,
+          "result_bytes": 6253,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 16.201,
+          "result_bytes": 6164,
+          "result_count": 10
+        }
+      ],
+      "usage": {
+        "input_tokens": 64053,
+        "output_tokens": 390,
+        "cached_input_tokens": 45056,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_cli_flow",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 23448,
+      "index_ms": 4019.117,
+      "tool_calls": 8,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 27993,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 27.286,
+          "result_bytes": 3955,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 20.431,
+          "result_bytes": 4266,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 9.565,
+          "result_bytes": 3672,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 9.697,
+          "result_bytes": 3852,
+          "result_count": 8
+        }
+      ],
+      "usage": {
+        "input_tokens": 93940,
+        "output_tokens": 500,
+        "cached_input_tokens": 66304,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_cli_flow",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 28562,
+      "index_ms": 0,
+      "tool_calls": 10,
+      "tool_names": [
+        "search_text",
+        "read_file",
+        "read_file",
+        "read_file",
+        "search_text",
+        "search_text",
+        "search_text",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 36719,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 116693,
+        "output_tokens": 642,
+        "cached_input_tokens": 84480,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_item_lifecycle",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 25172,
+      "index_ms": 0,
+      "tool_calls": 9,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "search_text",
+        "read_file",
+        "read_file",
+        "read_file",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 31004,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 95333,
+        "output_tokens": 656,
+        "cached_input_tokens": 62208,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_item_lifecycle",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 19220,
+      "index_ms": 4010.224,
+      "tool_calls": 10,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup",
+        "read_file",
+        "read_file",
+        "read_file",
+        "lookup",
+        "lookup",
+        "lookup"
+      ],
+      "tool_result_bytes": 60604,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 12.249,
+          "result_bytes": 4412,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 16.61,
+          "result_bytes": 7153,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 14.296,
+          "result_bytes": 5332,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 14.106,
+          "result_bytes": 5604,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 15.381,
+          "result_bytes": 7223,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 12.472,
+          "result_bytes": 2176,
+          "result_count": 3
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 14.076,
+          "result_bytes": 4107,
+          "result_count": 6
+        }
+      ],
+      "usage": {
+        "input_tokens": 103994,
+        "output_tokens": 583,
+        "cached_input_tokens": 62208,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_fixture_teardown",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 14922,
+      "index_ms": 3968.953,
+      "tool_calls": 4,
+      "tool_names": [
+        "lookup",
+        "lookup",
+        "lookup",
+        "lookup"
+      ],
+      "tool_result_bytes": 25760,
+      "specialized_calls": [
+        {
+          "tool": "lookup",
+          "elapsed_ms": 23.5,
+          "result_bytes": 7110,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 16.172,
+          "result_bytes": 5931,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 16.213,
+          "result_bytes": 6554,
+          "result_count": 10
+        },
+        {
+          "tool": "lookup",
+          "elapsed_ms": 13.607,
+          "result_bytes": 6165,
+          "result_count": 10
+        }
+      ],
+      "usage": {
+        "input_tokens": 62777,
+        "output_tokens": 301,
+        "cached_input_tokens": 39936,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "pytest_fixture_teardown",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 20874,
+      "index_ms": 0,
+      "tool_calls": 6,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "list_files",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 15468,
+      "specialized_calls": [],
+      "usage": {
+        "input_tokens": 110840,
+        "output_tokens": 523,
+        "cached_input_tokens": 90368,
+        "cache_write_tokens": 0
+      }
+    }
+  ],
+  "cache_condition": "uncontrolled; fresh sessions do not guarantee cold cache",
+  "source_repository": "https://github.com/pytest-dev/pytest",
+  "source_tag": "8.4.2",
+  "codex_cli_version": "0.149.1",
+  "interpretation": "Larger public-source pilot; lower total input/output and agent time, but higher uncached input. Not a cost claim or isolated BM25 ablation.",
+  "index_build_ms_total": 25078.685,
+  "agent_plus_index_ms": 133106.685,
+  "specialized_tool_usage": {
+    "nonempty_calls": 27,
+    "lookup_calls": 27,
+    "bm25_calls": 12,
+    "exact_or_phrase_calls": 15,
+    "context_pack_calls": 0
+  }
+}

@@ -737,7 +737,7 @@ def _is_test_path(path: str) -> bool:
     parts = set(parsed.parts)
     name = parsed.name
     return (
-        bool(parts & {"test", "tests", "__tests__"})
+        bool(parts & {"test", "tests", "testing", "__tests__"})
         or name.startswith("test_")
         or ".test." in name
         or ".spec." in name

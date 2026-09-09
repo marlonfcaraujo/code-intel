@@ -57,7 +57,9 @@ def test_codex_settings_disable_external_tools_and_scope_approvals(tmp_path):
     assert not any("tools.context_pack.approval_mode" in arg for arg in command)
 
 
-@pytest.mark.parametrize("filename", ["codex-pilot-2026-09-09.json", "codex-recovery-2026-09-09.json"])
+@pytest.mark.parametrize(
+    "filename", ["codex-pilot-2026-09-09.json", "codex-recovery-2026-09-09.json", "pytest-bm25-2026-09-09.json"]
+)
 def test_published_report_totals_match_per_run_receipts(filename):
     import json
 

@@ -69,6 +69,53 @@ TASKS = {
     },
 }
 BASE_TOOLS = {"list_files", "search_text", "read_file"}
+PYTEST_TASKS = {
+    "pytest_cli_flow": {
+        "question": "Trace pytest.main through its public re-export, implementation, and default session-command hook. "
+        "Return JSON keys public_module (path re-exporting main), main_impl (implementation path), "
+        "session_driver (path implementing the default test-session command), dispatch_hook (hook called by main), "
+        "session_wrapper (function called by the default hook to manage the session).",
+        "expected": {
+            "public_module": "src/pytest/__init__.py",
+            "main_impl": "src/_pytest/config/__init__.py",
+            "session_driver": "src/_pytest/main.py",
+            "dispatch_hook": "pytest_cmdline_main",
+            "session_wrapper": "wrap_session",
+        },
+    },
+    "pytest_item_lifecycle": {
+        "question": "Trace normal successful per-item test execution from the default session loop to the function "
+        "that runs setup/call/teardown and the concrete report class. Return JSON keys loop_path, loop_function, "
+        "protocol_path, protocol_function (the helper running all phases), report_path, report_class, "
+        "phase_order (array of phase names for a normal successful item, without setuponly).",
+        "expected": {
+            "loop_path": "src/_pytest/main.py",
+            "loop_function": "pytest_runtestloop",
+            "protocol_path": "src/_pytest/runner.py",
+            "protocol_function": "runtestprotocol",
+            "report_path": "src/_pytest/reports.py",
+            "report_class": "TestReport",
+            "phase_order": ["setup", "call", "teardown"],
+        },
+    },
+    "pytest_fixture_teardown": {
+        "question": "Find the method that invokes registered fixture finalizers and invalidates cached fixture "
+        "results, "
+        "and the SetupState method that pops node finalizers during teardown. Return JSON keys fixture_path, "
+        "fixture_method (Class.method), state_path, state_method (Class.method), lifo (whether both consume finalizer "
+        "lists last-in-first-out), cached_result_cleared (whether the fixture cache is cleared before collected "
+        "finalizer errors are re-raised).",
+        "expected": {
+            "fixture_path": "src/_pytest/fixtures.py",
+            "fixture_method": "FixtureDef.finish",
+            "state_path": "src/_pytest/runner.py",
+            "state_method": "SetupState.teardown_exact",
+            "lifo": True,
+            "cached_result_cleared": True,
+        },
+    },
+}
+ALL_TASKS = {**TASKS, **PYTEST_TASKS}
 EXTRA_TOOLS = {"lookup", "context_pack"}
 DISABLED_FEATURES = (
     "shell_tool",
@@ -221,7 +268,7 @@ def grade(task: str, answer: str) -> bool:
         actual = json.loads(answer)
     except ValueError:
         return False
-    expected = TASKS[task]["expected"]
+    expected = ALL_TASKS[task]["expected"]
     return isinstance(actual, dict) and all(
         type(actual.get(key)) is type(value) and actual[key] == value for key, value in expected.items()
     )
@@ -281,7 +328,7 @@ def run(args: argparse.Namespace) -> None:
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     records = []
     receipts = []
-    task_names = [args.task] if args.task else list(TASKS)
+    task_names = [args.task] if args.task else list(PYTEST_TASKS if args.suite == "pytest" else TASKS)
     for repetition in range(args.repeat):
         for index, task in enumerate(task_names):
             arms = ["baseline", "code_intel"] if (repetition + index) % 2 == 0 else ["code_intel", "baseline"]
@@ -306,7 +353,7 @@ def run(args: argparse.Namespace) -> None:
                     prompt = (
                         "Inspect the repository source using the available tools. Prefer specialized context tools "
                         "when available. Do not guess. Return only the requested JSON object.\n"
-                        + TASKS[task]["question"]
+                        + ALL_TASKS[task]["question"]
                     )
                     started = time.monotonic()
                     result = run_private(
@@ -348,7 +395,7 @@ def run(args: argparse.Namespace) -> None:
                         "model": args.model,
                         "revision": revision,
                         "prompt_id": task,
-                        "config_id": "source-only-pilot-v2-keyword-recovery",
+                        "config_id": "source-only-pilot-v3-function-bm25",
                         "elapsed_ms": elapsed,
                         "success": success,
                         "native_exit_code": result.returncode,
@@ -381,7 +428,8 @@ def run(args: argparse.Namespace) -> None:
             "recorded_at": datetime.now(UTC).isoformat(),
             "repetitions": args.repeat,
             "tool_trace_verified": True,
-            "harness_variant": "keyword-recovery-v1",
+            "harness_variant": "function-bm25-v1",
+            "suite": args.suite,
             "receipts": receipts,
             "cache_condition": "uncontrolled; fresh sessions do not guarantee cold cache",
         }
@@ -405,7 +453,8 @@ def main() -> None:
     pilot.add_argument("--model", default="gpt-5.6-luna")
     pilot.add_argument("--repeat", type=int, default=2)
     pilot.add_argument("--timeout", type=int, default=180)
-    pilot.add_argument("--task", choices=list(TASKS))
+    pilot.add_argument("--task", choices=list(ALL_TASKS))
+    pilot.add_argument("--suite", choices=["code-intel", "pytest"], default="code-intel")
     args = parser.parse_args()
     if args.command == "server":
         make_server(args.root, args.arm, args.audit).run(transport="stdio")

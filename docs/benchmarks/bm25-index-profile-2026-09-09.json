@@ -1,0 +1,376 @@
+{
+  "fixture": "pytest 8.4.2",
+  "source_revision": "bfae4224fd554d3d7f2c277a4cc092b6ec6af3ae",
+  "baseline_revision": "c833521333bcdd7deaf23df1da3e75945879953a",
+  "records": [
+    {
+      "implementation": "baseline",
+      "iteration": 0,
+      "analyzer": "2026-07-19-index-safety",
+      "files": 261,
+      "symbols": 5730,
+      "full_scan_ms": 2521.828,
+      "unchanged_scan_ms": 30.826,
+      "unchanged_written_files": 0,
+      "database_bytes": 31170560,
+      "queries": [
+        {
+          "query": "FixtureDef.finish",
+          "times_ms": [
+            3.857,
+            1.345,
+            1.584
+          ],
+          "top_labels": [
+            "method FixtureDef.finish"
+          ]
+        },
+        {
+          "query": "Config.parse",
+          "times_ms": [
+            2.181,
+            1.83,
+            1.749
+          ],
+          "top_labels": [
+            "method Config.parse",
+            "config.parse(args, addopts=False)",
+            "except iniconfig.ParseError as exc:"
+          ]
+        },
+        {
+          "query": "pytest_runtestloop",
+          "times_ms": [
+            3.606,
+            3.297,
+            2.922
+          ],
+          "top_labels": [
+            "function pytest_runtestloop",
+            "method LoggingPlugin.pytest_runtestloop",
+            "function pytest_runtestloop"
+          ]
+        },
+        {
+          "query": "fixture cached result finalizers",
+          "times_ms": [
+            53.953,
+            58.691,
+            60.474
+          ],
+          "top_labels": [
+            "method FixtureDef.execute",
+            "method FixtureRequest.addfinalizer",
+            "function pytest_fixture_post_finalizer"
+          ]
+        },
+        {
+          "query": "test setup teardown reports",
+          "times_ms": [
+            130.773,
+            128.744,
+            132.92
+          ],
+          "top_labels": [
+            "method LogXML.pytest_runtest_logreport",
+            "class TestReport",
+            "function pytest_runtest_teardown"
+          ]
+        },
+        {
+          "query": "command line configuration session",
+          "times_ms": [
+            55.953,
+            54.373,
+            55.627
+          ],
+          "top_labels": [
+            "function wrap_session",
+            "function _main",
+            "function pytest_cmdline_main"
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "bm25",
+      "iteration": 0,
+      "analyzer": "2026-09-09-function-bm25",
+      "files": 261,
+      "symbols": 5730,
+      "full_scan_ms": 2906.842,
+      "unchanged_scan_ms": 30.917,
+      "unchanged_written_files": 0,
+      "database_bytes": 38473728,
+      "queries": [
+        {
+          "query": "FixtureDef.finish",
+          "times_ms": [
+            3.934,
+            1.517,
+            1.494
+          ],
+          "top_labels": [
+            "method FixtureDef.finish"
+          ]
+        },
+        {
+          "query": "Config.parse",
+          "times_ms": [
+            2.293,
+            1.777,
+            1.709
+          ],
+          "top_labels": [
+            "method Config.parse",
+            "config.parse(args, addopts=False)",
+            "except iniconfig.ParseError as exc:"
+          ]
+        },
+        {
+          "query": "pytest_runtestloop",
+          "times_ms": [
+            3.342,
+            3.283,
+            3.304
+          ],
+          "top_labels": [
+            "function pytest_runtestloop",
+            "method LoggingPlugin.pytest_runtestloop",
+            "function pytest_runtestloop"
+          ]
+        },
+        {
+          "query": "fixture cached result finalizers",
+          "times_ms": [
+            7.451,
+            6.738,
+            6.931
+          ],
+          "top_labels": [
+            "function pytest_fixture_post_finalizer",
+            "function pytest_fixture_post_finalizer",
+            "method FixtureDef.execute"
+          ]
+        },
+        {
+          "query": "test setup teardown reports",
+          "times_ms": [
+            12.562,
+            11.989,
+            12.567
+          ],
+          "top_labels": [
+            "class TestReport",
+            "method LogXML.pytest_runtest_logreport",
+            "function call_and_report"
+          ]
+        },
+        {
+          "query": "command line configuration session",
+          "times_ms": [
+            6.651,
+            6.738,
+            7.194
+          ],
+          "top_labels": [
+            "function pytest_configure",
+            "function _main",
+            "function wrap_session"
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "bm25",
+      "iteration": 1,
+      "analyzer": "2026-09-09-function-bm25",
+      "files": 261,
+      "symbols": 5730,
+      "full_scan_ms": 3051.979,
+      "unchanged_scan_ms": 60.194,
+      "unchanged_written_files": 0,
+      "database_bytes": 38473728,
+      "queries": [
+        {
+          "query": "FixtureDef.finish",
+          "times_ms": [
+            4.494,
+            1.292,
+            1.487
+          ],
+          "top_labels": [
+            "method FixtureDef.finish"
+          ]
+        },
+        {
+          "query": "Config.parse",
+          "times_ms": [
+            2.277,
+            1.9,
+            1.825
+          ],
+          "top_labels": [
+            "method Config.parse",
+            "config.parse(args, addopts=False)",
+            "except iniconfig.ParseError as exc:"
+          ]
+        },
+        {
+          "query": "pytest_runtestloop",
+          "times_ms": [
+            3.915,
+            3.979,
+            3.485
+          ],
+          "top_labels": [
+            "function pytest_runtestloop",
+            "method LoggingPlugin.pytest_runtestloop",
+            "function pytest_runtestloop"
+          ]
+        },
+        {
+          "query": "fixture cached result finalizers",
+          "times_ms": [
+            7.644,
+            7.039,
+            7.178
+          ],
+          "top_labels": [
+            "function pytest_fixture_post_finalizer",
+            "function pytest_fixture_post_finalizer",
+            "method FixtureDef.execute"
+          ]
+        },
+        {
+          "query": "test setup teardown reports",
+          "times_ms": [
+            13.024,
+            12.401,
+            12.66
+          ],
+          "top_labels": [
+            "class TestReport",
+            "method LogXML.pytest_runtest_logreport",
+            "function call_and_report"
+          ]
+        },
+        {
+          "query": "command line configuration session",
+          "times_ms": [
+            6.33,
+            5.971,
+            5.98
+          ],
+          "top_labels": [
+            "function pytest_configure",
+            "function _main",
+            "function wrap_session"
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "iteration": 1,
+      "analyzer": "2026-07-19-index-safety",
+      "files": 261,
+      "symbols": 5730,
+      "full_scan_ms": 2502.295,
+      "unchanged_scan_ms": 33.591,
+      "unchanged_written_files": 0,
+      "database_bytes": 31170560,
+      "queries": [
+        {
+          "query": "FixtureDef.finish",
+          "times_ms": [
+            3.835,
+            1.185,
+            1.16
+          ],
+          "top_labels": [
+            "method FixtureDef.finish"
+          ]
+        },
+        {
+          "query": "Config.parse",
+          "times_ms": [
+            2.026,
+            2.349,
+            2.083
+          ],
+          "top_labels": [
+            "method Config.parse",
+            "config.parse(args, addopts=False)",
+            "except iniconfig.ParseError as exc:"
+          ]
+        },
+        {
+          "query": "pytest_runtestloop",
+          "times_ms": [
+            3.353,
+            3.185,
+            3.217
+          ],
+          "top_labels": [
+            "function pytest_runtestloop",
+            "method LoggingPlugin.pytest_runtestloop",
+            "function pytest_runtestloop"
+          ]
+        },
+        {
+          "query": "fixture cached result finalizers",
+          "times_ms": [
+            77.617,
+            60.746,
+            58.749
+          ],
+          "top_labels": [
+            "method FixtureDef.execute",
+            "method FixtureRequest.addfinalizer",
+            "function pytest_fixture_post_finalizer"
+          ]
+        },
+        {
+          "query": "test setup teardown reports",
+          "times_ms": [
+            125.444,
+            124.305,
+            124.58
+          ],
+          "top_labels": [
+            "method LogXML.pytest_runtest_logreport",
+            "class TestReport",
+            "function pytest_runtest_teardown"
+          ]
+        },
+        {
+          "query": "command line configuration session",
+          "times_ms": [
+            53.003,
+            52.729,
+            50.476
+          ],
+          "top_labels": [
+            "function wrap_session",
+            "function _main",
+            "function pytest_cmdline_main"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "full_scan_ms": 2512.0615,
+      "unchanged_scan_ms": 32.2085,
+      "database_bytes": 31170560
+    },
+    "bm25": {
+      "full_scan_ms": 2979.4105,
+      "unchanged_scan_ms": 45.5555,
+      "database_bytes": 38473728
+    }
+  },
+  "limitations": "Two alternating repetitions on one machine; OS caches not cleared; no model calls"
+}

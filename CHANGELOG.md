@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Add a field-weighted SQLite FTS5 BM25 index over names, signatures, docstrings
+  and bounded function bodies, with identifier splitting and no new dependency.
+- Preserve exact lookup fast paths and maintain function documents during
+  incremental updates and deletions. Existing context-window deduplication is reused.
+- Add catalog schema 2 migration with backups and retained usage history.
+- Capture bounded full Python docstrings and multiline declaration signatures.
+- Publish a larger public pytest pilot and index-overhead measurements, including
+  cold-index costs and the observed increase in uncached input tokens.
+
 ## 0.3.0
 
 - Recover empty sentence lookups with bounded lexical keywords, ranked using

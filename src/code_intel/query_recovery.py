@@ -9,7 +9,7 @@ MAX_TERMS = 8
 QUERY_GUIDANCE = "No match. Try an identifier or 2-4 distinctive keywords, or search_text for a literal."
 LOOKUP_DESCRIPTION = (
     "Find ranked source symbols and files. Prefer an exact identifier or 2-4 distinctive keywords; "
-    "this is lexical search, not semantic search. Sentence misses use a bounded keyword fallback. "
+    "this is lexical search, not semantic search. Non-identifier queries use a bounded, field-weighted BM25 index. "
     "Results include signatures, docstring summaries and bounded source excerpts. "
     "Use context_pack for more source context."
 )

@@ -770,18 +770,35 @@ code-intel context-pack --repo . "CatalogStore.publish_catalog" \
   --max-files 1 --max-lines-per-file 80 --json
 ```
 
-Lookup first tries the original query and naming-style variants. Only if those
-miss, a multiword query can use lexical recovery: at most eight terms, 128 symbol
-metadata candidates, and 24 indexed source lines per term. Body matches are
-associated with their innermost containing symbol. Candidates need multiple
-matching terms, and results expose the recovery strategy. This is not semantic
-search; incomplete vocabulary can still produce unrelated matches.
+Exact identifiers and file paths keep their fast paths. Other multiword queries
+use a separate function-level BM25 index in SQLite: names, signatures, docstrings
+and bounded bodies receive different weights, with snake/camel identifiers split
+into words. Queries use at most eight terms and 64 candidates and require multiple
+matching terms. Existing substring search remains available. Older compatible
+catalogs retain bounded keyword recovery until upgraded. This is lexical search;
+incomplete vocabulary can still produce unrelated matches.
 
 MCP lookup includes indexed docstring summaries and source excerpts for up to
 three symbol hits, capped at 40 lines and 6,000 characters each. Set
 `include_context=false` for metadata-only results or request a context pack for
 more source. Empty results provide guidance rather than silently returning an
-empty list. Existing compatible indexes can be reused; no new schema is required.
+empty list. Version 0.4 adds catalog schema 2; see [Upgrading](docs/UPGRADING.md).
+
+#### Larger public benchmark and overhead
+
+A separate pilot on pytest 8.4.2 used three multi-file tasks, twice per arm.
+All 12 answers passed. With code-intel available, summed input was 18.6% lower,
+output 21.3% lower, and agent time 22.3% lower. **Uncached input was 7.2% higher**;
+this is not a billing-savings claim. Including fresh indexing for every treatment
+run leaves about a 4.2% time advantage in this small sample.
+
+In a separate local index profile, broader lookups fell from roughly 54–127 ms
+to 6–13 ms, while exact lookups stayed around 1–3 ms. Full indexing rose from
+about 2.5 to 3.0 seconds and database size from 31.2 to 38.5 MB. No extra service,
+embeddings, or custom result cache was added. Existing context packs already
+merge overlapping snippets.
+
+See [full measurements and limits](docs/BM25_BENCHMARK.md).
 
 ### `doctor`
 

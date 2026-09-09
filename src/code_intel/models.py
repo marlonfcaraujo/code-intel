@@ -36,6 +36,7 @@ class Symbol:
     signature: str = ""
     doc: str = ""
     exported: bool = True
+    full_doc: str = ""
 
 
 @dataclass(frozen=True, slots=True)

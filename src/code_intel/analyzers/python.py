@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import ast
+import io
 import sys
+import tokenize
 from pathlib import Path
 
 from code_intel.analyzers.base import count_lines, indexed_source_lines, relative_path
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol
-from code_intel.secret_filter import redact_secret_line
+from code_intel.secret_filter import redact_secret_line, redact_source_text
 
 
 class PythonAnalyzer:
@@ -111,6 +113,8 @@ def _symbol_from_node(
     line = getattr(node, "lineno", 1)
     end_line = getattr(node, "end_lineno", None)
     signature = redact_secret_line(lines[line - 1].strip()) if 0 < line <= len(lines) else ""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not signature.endswith(":"):
+        signature = _declaration_signature(lines, line, signature)
     doc = (
         ast.get_docstring(node) or ""
         if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef, ast.Module))
@@ -126,7 +130,28 @@ def _symbol_from_node(
         signature=signature,
         doc=redact_secret_line(doc.splitlines()[0]) if doc else "",
         exported=not name.startswith("_"),
+        full_doc=redact_source_text(doc)[:2000],
     )
+
+
+def _declaration_signature(lines: list[str], line: int, fallback: str) -> str:
+    header = "\n".join(lines[line - 1 : line + 11]).lstrip()
+    depth = 0
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(header).readline):
+            if token.type != tokenize.OP:
+                continue
+            if token.string in "([{":
+                depth += 1
+            elif token.string in ")]}":
+                depth -= 1
+            elif token.string == ":" and depth == 0:
+                parts = header.splitlines()[: token.end[0]]
+                parts[-1] = parts[-1][: token.end[1]]
+                return redact_source_text("\n".join(parts))[:2000]
+    except (tokenize.TokenError, IndentationError):
+        pass
+    return fallback
 
 
 def _extract_dependencies(

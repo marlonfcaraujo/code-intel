@@ -70,7 +70,8 @@ def build_agent_note_section(command_prefix: str) -> str:
             "## Code Intel",
             "",
             "Use exact identifiers or 2-4 distinctive keywords for lookup; it is lexical, not semantic search. "
-            "Long-query misses use bounded keyword recovery. Prefer context_pack for declaration/docstring/body "
+            "Other multiword queries use function BM25 (legacy catalogs use bounded keyword recovery). "
+            "Prefer context_pack for declaration/docstring/body "
             "context; inspect no-match guidance before falling back to broad reads.",
             "Use code-intel for self-contained repository-aware navigation before non-trivial code changes.",
             "Prefer the MCP server tools when configured: `catalog_health`, `catalog_repo`, `workspace_catalog`, "

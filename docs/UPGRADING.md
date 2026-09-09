@@ -68,13 +68,21 @@ uv run code-intel scan /path/to/repository --incremental
 uv run code-intel doctor /path/to/repository --summary
 ```
 
-Compatible schema-0 catalogs receive the schema-1 version marker in a transaction.
-Before changing it, SQLite's backup API creates a consistent private backup,
-including committed WAL data. No index rows or usage history are removed by this
-migration. Missing catalogs are reported without being created. Unsupported
-legacy layouts require a scan instead; future layouts are rejected.
+Compatible schema-0 and schema-1 catalogs upgrade to schema 2 in a transaction.
+SQLite's backup API first creates a consistent private backup, including
+committed WAL data. Migration adds a full-docstring column and populates the
+function BM25 index from already stored, redacted source data. Existing symbols
+and usage history are preserved. Missing catalogs are reported without being
+created. Unsupported legacy layouts require a scan instead; future layouts are
+rejected. Legacy docstring summaries remain usable during migration; the next
+scan captures full Python docstrings from source.
 
-New scans write schema 1. Analyzer changes can rebuild derived indexes through
+New scans write schema 2. The new analyzer version triggers one full refresh on
+the next incremental scan, after which only changed files are reindexed.
+Reconnect running MCP clients to the updated package before that refresh:
+older processes reject the newer catalog schema. Until refreshed, the updated
+package can still query compatible older catalogs through lexical recovery.
+Analyzer changes rebuild derived indexes through
 the existing atomic catalog publication path, which copies usage history before
 replacement. New code-intel versions refuse to read or replace a catalog with a
 newer schema marker. Avoid downgrading to older releases that predate these guards.

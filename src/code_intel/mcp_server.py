@@ -243,7 +243,8 @@ def lookup_tool(
 ) -> dict[str, Any]:
     """Find source using an identifier or 2-4 distinctive keywords, not semantic questions.
 
-    Sentence misses use bounded keyword recovery. Results carry signatures and
+    Non-identifier queries use field-weighted function BM25, with bounded keyword
+    recovery for older catalogs. Results carry signatures and
     docstring summaries; include_context adds excerpts for the first three
     symbols, capped at 40 lines and 6000 characters each. Use context_pack for
     more body context. No-match responses include query guidance.
@@ -295,7 +296,7 @@ def context_pack_tool(
     """Return bounded declaration/docstring/body context for an identifier or 2-4 keywords.
 
     Prefer concise lexical queries; this is not semantic search. Sentence
-    misses use bounded keyword recovery before returning no-match guidance.
+    queries use function BM25 (or legacy keyword recovery) before no-match guidance.
 
     Args:
         query: Symbol, file stem, or text fragment to search.

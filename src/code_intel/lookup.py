@@ -72,7 +72,8 @@ class LookupResult:
         files: Number of file hits considered.
         text_matches: Number of text hits considered.
         hits: Ranked combined hits.
-        recovery_terms: Lexical terms tried only after the original query missed.
+        recovery_terms: Terms used for non-identifier retrieval.
+        recovery_strategy: Retrieval method used for non-identifier queries.
     """
 
     query: str
@@ -82,6 +83,7 @@ class LookupResult:
     text_matches: int
     hits: list[LookupHit]
     recovery_terms: tuple[str, ...] = ()
+    recovery_strategy: str = ""
 
 
 def lookup(
@@ -103,8 +105,8 @@ def lookup(
     Args:
         repo_path: Repository path being searched.
         store: Catalog store for the repository.
-        query: Prefer an identifier or short fragment. Sentences use a bounded
-            keyword fallback only after exact/phrase lookup misses.
+        query: Prefer an identifier or short fragment. Other multiword queries
+            use function BM25 when supported, otherwise bounded keyword recovery.
         limit: Maximum combined hits to return.
         symbol_limit: Optional maximum symbol hits to consider. Use 0 to skip
             symbol lookup.
@@ -191,19 +193,35 @@ def lookup(
         limit=bounded_limit,
     )
     recovery_terms: list[str] = []
-    if not hits and bounded_symbol_limit and include_fuzzy_symbols is not False:
+    recovery_strategy = ""
+    if not symbol_rows and not file_rows and bounded_symbol_limit and include_fuzzy_symbols is not False:
         recovery_terms = query_terms(stripped)
         if recovery_terms:
-            candidates = store.keyword_symbol_candidates(recovery_terms, include_body=bounded_text_limit > 0)
-            candidates = _filter_rows_for_tests(candidates, include_tests=include_tests)
-            recovered = rank_keyword_candidates(candidates, recovery_terms)[: min(bounded_limit, bounded_symbol_limit)]
-            hits = [
-                replace(
-                    _hit_from_symbol(stripped, {**row, "summary": row["doc"]}, index=index), score=row["recovery_score"]
-                )
-                for index, row in enumerate(recovered)
-            ]
-            symbol_rows = recovered
+            recovered = store.search_function_documents(
+                recovery_terms,
+                limit=min(bounded_limit, bounded_symbol_limit),
+                include_body=bounded_text_limit > 0,
+                include_tests=include_tests,
+            )
+            recovery_strategy = "function_bm25"
+            if recovered is None and not hits:
+                candidates = store.keyword_symbol_candidates(recovery_terms, include_body=bounded_text_limit > 0)
+                candidates = _filter_rows_for_tests(candidates, include_tests=include_tests)
+                recovered = rank_keyword_candidates(candidates, recovery_terms)[
+                    : min(bounded_limit, bounded_symbol_limit)
+                ]
+                recovery_strategy = "bounded_keywords"
+            if recovered:
+                recovered_hits = [
+                    replace(
+                        _hit_from_symbol(stripped, {**row, "summary": row["doc"]}, index=index),
+                        score=row.get("recovery_score", 900 + index),
+                    )
+                    for index, row in enumerate(recovered)
+                ]
+                locations = {(hit.path, hit.line) for hit in recovered_hits}
+                hits = (recovered_hits + [hit for hit in hits if (hit.path, hit.line) not in locations])[:bounded_limit]
+                symbol_rows = recovered
     return LookupResult(
         query=stripped,
         repo_path=str(Path(repo_path).resolve()),
@@ -212,6 +230,7 @@ def lookup(
         text_matches=len(text_matches),
         hits=hits,
         recovery_terms=tuple(recovery_terms),
+        recovery_strategy=recovery_strategy,
     )
 
 
@@ -261,9 +280,9 @@ def lookup_to_dict(result: LookupResult, *, store: CatalogStore | None = None) -
     }
     if result.recovery_terms:
         payload["recovery"] = {
-            "strategy": "bounded_keywords",
+            "strategy": result.recovery_strategy,
             "terms": list(result.recovery_terms),
-            "max_candidates": 320,
+            "max_candidates": 64 if result.recovery_strategy == "function_bm25" else 320,
         }
     if not result.hits:
         payload["guidance"] = QUERY_GUIDANCE
@@ -626,7 +645,7 @@ def _has_exact_file_match(query: str, file_rows: list[dict[str, Any]]) -> bool:
 def _is_test_path(path: str) -> bool:
     parsed = Path(path)
     return (
-        "tests" in parsed.parts
+        bool({"test", "tests", "testing", "__tests__"} & set(parsed.parts))
         or parsed.name.startswith("test_")
         or ".test." in parsed.name
         or parsed.name.endswith("_test.py")

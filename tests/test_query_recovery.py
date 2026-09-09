@@ -107,11 +107,11 @@ def test_recovery_respects_disabled_symbol_and_text_facets(repository, monkeypat
     root, store = repository
     seen = []
 
-    def collect(terms, *, include_body):
+    def collect(terms, *, include_body, include_tests, limit):
         seen.append(include_body)
         return []
 
-    monkeypatch.setattr(store, "keyword_symbol_candidates", collect)
+    monkeypatch.setattr(store, "search_function_documents", collect)
     lookup(root, store, "missing enabled timeout defaults", text_limit=0)
     assert seen == [False]
     lookup(root, store, "missing enabled timeout defaults", symbol_limit=0)

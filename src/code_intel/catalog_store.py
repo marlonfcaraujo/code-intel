@@ -13,10 +13,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from code_intel.function_index import FUNCTION_INDEX_SQL, index_file, search_functions
 from code_intel.models import Dependency, FileAnalysis, SourceFile, Symbol, TextLine, TextMatch
 
 DEFAULT_CATALOG_PATH = ".code-intel/catalog.sqlite"
-CATALOG_SCHEMA_VERSION = 1
+CATALOG_SCHEMA_VERSION = 2
 SQLITE_PARAMETER_CHUNK_SIZE = 500
 CATALOG_WRITE_LOCK_TIMEOUT_SECONDS = 30.0
 REUSABLE_CONNECTION_OPEN_ATTEMPTS = 3
@@ -147,6 +148,7 @@ class CatalogStore:
                 DROP TABLE IF EXISTS meta;
                 DROP TABLE IF EXISTS files;
                 DROP TABLE IF EXISTS symbols;
+                DROP TABLE IF EXISTS function_index;
                 DROP TABLE IF EXISTS dependencies;
                 DROP TABLE IF EXISTS text_index;
                 DROP TABLE IF EXISTS text_lines;
@@ -175,6 +177,7 @@ class CatalogStore:
                     end_line INTEGER,
                     signature TEXT NOT NULL,
                     doc TEXT NOT NULL,
+                    full_doc TEXT NOT NULL DEFAULT '',
                     exported INTEGER NOT NULL,
                     FOREIGN KEY(path) REFERENCES files(path)
                 );
@@ -209,6 +212,7 @@ class CatalogStore:
                 """
             )
             self._create_usage_tables(connection)
+            connection.execute(FUNCTION_INDEX_SQL)
             connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
         self._clear_schema_cache()
         self._clear_file_cache()
@@ -300,6 +304,9 @@ class CatalogStore:
                 self._insert_symbols(connection, analysis.symbols)
                 self._insert_dependencies(connection, analysis.dependencies)
                 self._insert_text_lines(connection, analysis.text_lines)
+                index_file(
+                    connection, analysis.source_file.path, {row.line: row.content for row in analysis.text_lines}
+                )
                 if analysis.text_lines:
                     text_index_paths.add(analysis.source_file.path)
             self._insert_text_index_paths(connection, text_index_paths)
@@ -335,6 +342,9 @@ class CatalogStore:
                     self._insert_symbols(connection, analysis.symbols)
                     self._insert_dependencies(connection, analysis.dependencies)
                     self._insert_text_lines(connection, analysis.text_lines)
+                    index_file(
+                        connection, analysis.source_file.path, {row.line: row.content for row in analysis.text_lines}
+                    )
                 self._insert_text_index_paths(connection, replaced_paths)
                 self._create_catalog_indexes(connection)
                 self._upsert_meta(connection, metadata)
@@ -716,6 +726,17 @@ class CatalogStore:
                             candidate["body_terms"].append(row["term"])
         return list(candidates.values())
 
+    def search_function_documents(
+        self, terms: list[str], *, limit: int = 20, include_body: bool = True, include_tests: bool = True
+    ) -> list[dict[str, Any]] | None:
+        """Return weighted BM25 symbols, or None when the catalog needs upgrading."""
+        with self.connect() as connection:
+            if not self._table_exists(connection, "function_index"):
+                return None
+            return search_functions(
+                connection, terms, limit=limit, include_body=include_body, include_tests=include_tests
+            )
+
     def search_files(self, query: str, limit: int = 20) -> list[sqlite3.Row]:
         """Search cataloged file paths by path, basename, or stem.
 
@@ -1074,6 +1095,7 @@ class CatalogStore:
                     signature=str(row["signature"]),
                     doc=str(row["doc"]),
                     exported=bool(row["exported"]),
+                    full_doc=str(row["full_doc"]) if "full_doc" in row.keys() else "",
                 )
                 for row in symbol_rows
             ],
@@ -1391,8 +1413,8 @@ class CatalogStore:
     def _insert_symbols(self, connection: sqlite3.Connection, symbols: list[Symbol]) -> None:
         connection.executemany(
             """
-            INSERT INTO symbols(name, qualified_name, kind, path, line, end_line, signature, doc, exported)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO symbols(name, qualified_name, kind, path, line, end_line, signature, doc, exported, full_doc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -1405,6 +1427,7 @@ class CatalogStore:
                     symbol.signature,
                     symbol.doc,
                     int(symbol.exported),
+                    symbol.full_doc,
                 )
                 for symbol in symbols
             ],
@@ -1445,6 +1468,10 @@ class CatalogStore:
         if not paths:
             return
         path_rows = [(path,) for path in sorted(paths)]
+        if self._table_exists(connection, "function_index"):
+            connection.executemany(
+                "DELETE FROM function_index WHERE rowid IN (SELECT id FROM symbols WHERE path=?)", path_rows
+            )
         connection.executemany("DELETE FROM symbols WHERE path = ?", path_rows)
         connection.executemany("DELETE FROM dependencies WHERE source_path = ?", path_rows)
         self._delete_text_index_paths(connection, paths)

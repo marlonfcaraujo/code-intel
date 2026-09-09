@@ -9,6 +9,7 @@ from typing import Any
 
 from code_intel.catalog_store import CATALOG_SCHEMA_VERSION, _catalog_write_lock
 from code_intel.config_upgrade import backup_path
+from code_intel.function_index import migrate_function_index
 
 
 def _preflight(connection: sqlite3.Connection) -> int:
@@ -18,6 +19,11 @@ def _preflight(connection: sqlite3.Connection) -> int:
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if not {"files", "symbols", "dependencies", "meta", "text_lines", "usage_events"}.issubset(tables):
         raise ValueError("Unsupported legacy catalog; use scan to rebuild its index")
+    if version == CATALOG_SCHEMA_VERSION and (
+        "function_index" not in tables
+        or "full_doc" not in {row[1] for row in connection.execute("PRAGMA table_info(symbols)")}
+    ):
+        raise ValueError("Current catalog lacks its function index; run scan to rebuild")
     if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
         raise ValueError("Catalog integrity check failed")
     return version
@@ -57,6 +63,7 @@ def upgrade_catalog(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
         return result
     with _catalog_write_lock(path):
         source = sqlite3.connect(path)
+        source.row_factory = sqlite3.Row
         try:
             current = _preflight(source)
             if current == CATALOG_SCHEMA_VERSION:
@@ -71,6 +78,7 @@ def upgrade_catalog(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
                 destination.close()
             with source:
                 source.execute("BEGIN IMMEDIATE")
+                migrate_function_index(source)
                 source.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
             result["backup_created"] = True
         finally:
