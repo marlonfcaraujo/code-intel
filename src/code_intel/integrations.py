@@ -145,7 +145,7 @@ def _command(args: argparse.Namespace) -> int:
             args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             if args.output.exists():
                 raise ValueError("Destination exists")
-            with args.output.open("x", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
+            with open(args.output, "x", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
             print(json.dumps({"imported": True, "integration": args.agent}))
             return 0

@@ -717,7 +717,8 @@ cache writes, model calls, success counts, elapsed time, and median paired
 reductions. Input totals include cache reads; do not add cached input again.
 Unknown metrics remain `null`, with availability counts alongside them.
 See [Measured usage](docs/MEASURED_USAGE.md) for the adapter contract and experimental
-controls. No measured savings claim is published until real paired runs exist.
+controls. The public pilot below demonstrates collection, with important limits
+on interpreting the numbers as savings.
 
 Register a native usage adapter with one command:
 
@@ -730,6 +731,27 @@ Hermes, OpenCode, and Claude Code also have native usage adapters (`hermes`,
 `opencode`, `claude`). Paseo can be registered, but complete task usage must come
 from its underlying provider. Registration checks CLI compatibility; a paired
 experiment additionally needs a task definition, tool preparation, and a grader.
+
+#### Measured example: public repository pilot
+
+On September 9, 2026, twelve Codex runs compared three source-navigation tasks
+twice per arm on code-intel's own public source (`gpt-5.6-luna`, low reasoning).
+
+| Metric | Basic read/search | With code-intel tools available |
+| --- | ---: | ---: |
+| Tasks passed | 6/6 | 6/6 |
+| Total input tokens, including cached input | 488,746 | 390,743 |
+| Cached input tokens (included above) | 337,664 | 238,336 |
+| Uncached input tokens | 151,082 | 152,407 |
+| Output tokens | 2,354 | 2,169 |
+| Reported cache-write tokens | 0 | 0 |
+
+**This is not a proven savings result.** Although total input was about 20% lower,
+uncached input was slightly higher. More importantly, all specialized lookups
+returned no matches: the model used long natural-language phrases and solved the
+tasks with basic tools. The difference cannot be credited to useful code-intel
+retrieval. See [methodology, timings, limitations and reproduction](docs/BENCHMARKS.md)
+and the [machine-readable results](docs/benchmarks/codex-pilot-2026-09-09.json).
 
 ### `doctor`
 

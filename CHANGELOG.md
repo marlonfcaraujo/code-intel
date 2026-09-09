@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+- Fix private native usage imports failing when opening their output file.
+- Preserve reported Codex cache-write tokens and use the final agent message
+  for grading instead of prepending progress commentary.
+- Add a reproducible public-source Codex pilot and publish measured counters,
+  including the limitations that prevent claiming causal or billed savings.
+
 ## 0.2.0
 
 - Add measured task reports for input, output and cache usage, with missing

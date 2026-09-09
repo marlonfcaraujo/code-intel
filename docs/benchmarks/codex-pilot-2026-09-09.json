@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "paired_tasks": 6,
+  "arms": {
+    "baseline": {
+      "input_tokens": {
+        "total": 488746,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 2354,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 337664,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 107305,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 151082,
+        "available_tasks": 6
+      }
+    },
+    "code_intel": {
+      "input_tokens": {
+        "total": 390743,
+        "available_tasks": 6
+      },
+      "output_tokens": {
+        "total": 2169,
+        "available_tasks": 6
+      },
+      "cached_input_tokens": {
+        "total": 238336,
+        "available_tasks": 6
+      },
+      "cache_write_tokens": {
+        "total": 0,
+        "available_tasks": 6
+      },
+      "elapsed_ms": {
+        "total": 101241,
+        "available_tasks": 6
+      },
+      "model_calls": {
+        "total": null,
+        "available_tasks": 0
+      },
+      "success": {
+        "total": 6,
+        "available_tasks": 6
+      },
+      "uncached_input_tokens": {
+        "total": 152407,
+        "available_tasks": 6
+      }
+    }
+  },
+  "median_paired_reduction_percent": {
+    "input_tokens": {
+      "value": 9.24941430187016,
+      "available_pairs": 6
+    },
+    "output_tokens": {
+      "value": 8.168026783845994,
+      "available_pairs": 6
+    },
+    "elapsed_ms": {
+      "value": 2.3819025088358368,
+      "available_pairs": 6
+    }
+  },
+  "experimental_controls": "caller_supplied",
+  "tool_policy_independently_verified": false,
+  "source_revision": "f675a1ddc78614ca4131ffc38396b55e4cf615ba",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "recorded_at": "2026-09-09T16:23:07.446234+00:00",
+  "repetitions": 2,
+  "tool_trace_verified": true,
+  "receipts": [
+    {
+      "task": "integration_defaults",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 20208,
+      "index_ms": 0,
+      "tool_calls": 6,
+      "tool_names": [
+        "search_text",
+        "list_files",
+        "search_text",
+        "read_file",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 21633,
+      "usage": {
+        "input_tokens": 117377,
+        "output_tokens": 421,
+        "cached_input_tokens": 91392,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 14728,
+      "index_ms": 781.098,
+      "tool_calls": 2,
+      "tool_names": [
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 9827,
+      "usage": {
+        "input_tokens": 54578,
+        "output_tokens": 228,
+        "cached_input_tokens": 34048,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 17404,
+      "index_ms": 729.093,
+      "tool_calls": 6,
+      "tool_names": [
+        "search_text",
+        "lookup",
+        "list_files",
+        "search_text",
+        "read_file",
+        "read_file"
+      ],
+      "tool_result_bytes": 22484,
+      "usage": {
+        "input_tokens": 63036,
+        "output_tokens": 467,
+        "cached_input_tokens": 35072,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 15882,
+      "index_ms": 0,
+      "tool_calls": 3,
+      "tool_names": [
+        "list_files",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 15852,
+      "usage": {
+        "input_tokens": 58864,
+        "output_tokens": 292,
+        "cached_input_tokens": 35840,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 0,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 21001,
+      "index_ms": 0,
+      "tool_calls": 7,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "search_text",
+        "list_files",
+        "read_file",
+        "read_file",
+        "search_text"
+      ],
+      "tool_result_bytes": 19397,
+      "usage": {
+        "input_tokens": 77529,
+        "output_tokens": 472,
+        "cached_input_tokens": 52992,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 0,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 18127,
+      "index_ms": 673.707,
+      "tool_calls": 6,
+      "tool_names": [
+        "lookup",
+        "search_text",
+        "search_text",
+        "search_text",
+        "read_file",
+        "search_text"
+      ],
+      "tool_result_bytes": 29038,
+      "usage": {
+        "input_tokens": 77691,
+        "output_tokens": 452,
+        "cached_input_tokens": 37120,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 16558,
+      "index_ms": 700.221,
+      "tool_calls": 3,
+      "tool_names": [
+        "lookup",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 9829,
+      "usage": {
+        "input_tokens": 66937,
+        "output_tokens": 282,
+        "cached_input_tokens": 46080,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "integration_defaults",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 14834,
+      "index_ms": 0,
+      "tool_calls": 2,
+      "tool_names": [
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 9827,
+      "usage": {
+        "input_tokens": 54172,
+        "output_tokens": 275,
+        "cached_input_tokens": 35840,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 16898,
+      "index_ms": 0,
+      "tool_calls": 4,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "list_files",
+        "read_file"
+      ],
+      "tool_result_bytes": 22738,
+      "usage": {
+        "input_tokens": 64695,
+        "output_tokens": 405,
+        "cached_input_tokens": 38912,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "refresh_schedule",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 17704,
+      "index_ms": 730.213,
+      "tool_calls": 3,
+      "tool_names": [
+        "search_text",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 9401,
+      "usage": {
+        "input_tokens": 52592,
+        "output_tokens": 356,
+        "cached_input_tokens": 26880,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 1,
+      "arm": "code_intel",
+      "success": true,
+      "elapsed_ms": 16720,
+      "index_ms": 718.688,
+      "tool_calls": 4,
+      "tool_names": [
+        "lookup",
+        "search_text",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 14164,
+      "usage": {
+        "input_tokens": 75909,
+        "output_tokens": 384,
+        "cached_input_tokens": 59136,
+        "cache_write_tokens": 0
+      }
+    },
+    {
+      "task": "catalog_publication",
+      "repeat": 1,
+      "arm": "baseline",
+      "success": true,
+      "elapsed_ms": 18482,
+      "index_ms": 0,
+      "tool_calls": 5,
+      "tool_names": [
+        "search_text",
+        "read_file",
+        "search_text",
+        "search_text",
+        "read_file"
+      ],
+      "tool_result_bytes": 32415,
+      "usage": {
+        "input_tokens": 116109,
+        "output_tokens": 489,
+        "cached_input_tokens": 82688,
+        "cache_write_tokens": 0
+      }
+    }
+  ],
+  "cache_condition": "uncontrolled; fresh sessions do not guarantee cold cache",
+  "codex_cli_version": "0.149.1",
+  "source_repository": "https://github.com/marlonfcaraujo/code-intel",
+  "interpretation": "Measurement pilot, not evidence of causal or billed savings. All specialized lookup attempts returned zero matches.",
+  "specialized_tool_usage": {
+    "treatment_runs": 6,
+    "runs_attempting_lookup": 4,
+    "nonempty_lookup_results": 0,
+    "context_pack_calls": 0
+  },
+  "index_build_ms_total": 4333.02
+}

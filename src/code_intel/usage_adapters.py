@@ -78,15 +78,18 @@ def parse_agent_usage(name: str, text: str) -> AgentUsage:
                         "input_tokens": usage.get("input_tokens"),
                         "output_tokens": usage.get("output_tokens"),
                         "cached_input_tokens": usage.get("cached_input_tokens"),
-                        "cache_write_tokens": None,
+                        "cache_write_tokens": usage.get("cache_write_input_tokens"),
                     }
                 )
             )
-        answer = "\n".join(
+        messages = [
             event["item"]["text"]
             for event in events
             if event.get("type") == "item.completed" and event.get("item", {}).get("type") == "agent_message"
-        )
+        ]
+        # Codex emits progress commentary as agent_message too. The last such
+        # item is the final answer; prepending commentary breaks JSON grading.
+        answer = messages[-1] if messages else ""
         return AgentUsage(calls, all(event["type"] == "turn.completed" for event in terminal), answer)
     if name == "hermes":
         usage = json.loads(text)

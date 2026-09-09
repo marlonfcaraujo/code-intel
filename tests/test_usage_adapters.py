@@ -34,6 +34,37 @@ def test_codex_failure_unknowns_and_truncation():
         parse_agent_usage("codex", events({"type": "turn.started"}))
 
 
+def test_codex_cache_creation_field_when_reported():
+    result = parse_agent_usage(
+        "codex",
+        events(
+            {
+                "type": "turn.completed",
+                "usage": {
+                    "input_tokens": 100,
+                    "cached_input_tokens": 20,
+                    "cache_write_input_tokens": 30,
+                    "output_tokens": 5,
+                },
+            }
+        ),
+    )
+    assert result.calls[0]["usage"]["cache_write_tokens"] == 30
+    assert result.calls[0]["usage"]["input_tokens"] == 100
+
+
+def test_codex_final_answer_excludes_progress_commentary():
+    result = parse_agent_usage(
+        "codex",
+        events(
+            {"type": "item.completed", "item": {"type": "agent_message", "text": "Inspecting source..."}},
+            {"type": "item.completed", "item": {"type": "agent_message", "text": '{"answer": 42}'}},
+            {"type": "turn.completed", "usage": {"input_tokens": 100}},
+        ),
+    )
+    assert result.answer == '{"answer": 42}'
+
+
 def test_hermes_excludes_cache_from_native_input():
     report = dict(
         input_tokens=10,

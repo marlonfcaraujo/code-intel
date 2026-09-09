@@ -54,6 +54,45 @@ def test_import_keeps_only_allowed_fields():
     assert record["calls"][0]["model_calls"] is None
 
 
+def test_import_cli_writes_private_record_and_refuses_overwrite(tmp_path, capsys):
+    metadata = tmp_path / "metadata.json"
+    native = tmp_path / "native.jsonl"
+    output = tmp_path / "record.jsonl"
+    metadata.write_text(
+        json.dumps(
+            dict(
+                pair_id="example",
+                arm="baseline",
+                model="test",
+                revision="abc",
+                prompt_id="p",
+                config_id="c",
+                elapsed_ms=10,
+                success=True,
+            )
+        )
+    )
+    native.write_text(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 10}}))
+    command = [
+        "integrations",
+        "import",
+        "codex",
+        "--input",
+        str(native),
+        "--metadata",
+        str(metadata),
+        "--output",
+        str(output),
+    ]
+    assert main(command) == 0
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert json.loads(output.read_text())["calls"][0]["usage"]["input_tokens"] == 10
+    before = output.read_bytes()
+    assert main(command) == 1
+    assert output.read_bytes() == before
+    assert str(tmp_path) not in capsys.readouterr().out
+
+
 def test_private_json_replacement_mode(tmp_path):
     path = tmp_path / "config.json"
     private_json(path, {"a": 1})
